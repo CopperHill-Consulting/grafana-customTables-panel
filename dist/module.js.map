@@ -1,0 +1,1 @@
+{"version":3,"sources":["../src/module.js"],"names":[],"mappings":";;;;;;;;;;;;AAAA","sourcesContent":["import {DataTablePanelCtrl} from './ctrl';\n\nexport {\n    DataTablePanelCtrl as PanelCtrl\n};"],"file":"module.js"}

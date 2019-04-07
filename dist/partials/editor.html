@@ -1,0 +1,52 @@
+<div>
+  <div class="gf-form-inline">
+    <div class="gf-form gf-form--grow">
+      <label class="gf-form-label width-auto">
+        <tip>
+          If the columns ordinarily wouldn't fill the space the columns will be stretched.
+          Don't use this options if there are many columns and you want to set the size of some or all of them.
+        </tip>
+      </label>
+      <gf-form-switch
+          class="gf-form"
+          label="Full Width"
+          label-class="width-auto"
+          checked="ctrl.panel.isFullWidth"
+          on-change="ctrl.renderNow()">
+      </gf-form-switch>
+    </div>
+  </div>
+  <div class="gf-form-inline">
+    <div class="gf-form gf-form--grow">
+      <gf-form-switch
+          class="gf-form"
+          label="Allow Ordering"
+          label-class="width-auto"
+          checked="ctrl.panel.allowOrdering"
+          on-change="ctrl.renderNow()">
+      </gf-form-switch>
+    </div>
+  </div>
+  <div class="gf-form-inline">
+    <div class="gf-form gf-form--grow">
+      <gf-form-switch
+          class="gf-form"
+          label="Allow Searching"
+          label-class="width-auto"
+          checked="ctrl.panel.allowSearching"
+          on-change="ctrl.renderNow()">
+      </gf-form-switch>
+    </div>
+  </div>
+  <div class="gf-form-inline">
+    <div class="gf-form gf-form--grow">
+      <gf-form-switch
+          class="gf-form"
+          label="Allow Length Change"
+          label-class="width-auto"
+          checked="ctrl.panel.allowLengthChange"
+          on-change="ctrl.renderNow()">
+      </gf-form-switch>
+    </div>
+  </div>
+</div>
