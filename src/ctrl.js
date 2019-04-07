@@ -7,6 +7,8 @@ import './external/datatables/css/jquery.dataTables.min.css!';
 import './external/datatables/css/fixedHeader.dataTables.min.css!';
 import './external/datatables-grafana-fix.css!';
 
+const RGX_SIMPLE_NUMBER = /^\d+(\.\d+)?$/;
+
 const DEFAULT_PSEUDO_CSS = {
   ".theme-dark &": {
     "color": "white"
@@ -44,12 +46,14 @@ const CONTENT_RULE_CLASS_LEVELS = [
   { id: 'ROW', text: 'Entire row' }
 ];
 
-const CONTENT_RULE_MIN_VALUE_OPS = [
+const CONTENT_RULE_MAX_VALUE_OPS = [
+  { id: '', text: '' },
   { id: '>=', text: '\u2265 (greater than or equal to)' },
   { id: '>', text: '> (greater than)' }
 ];
 
-const CONTENT_RULE_MAX_VALUE_OPS = [
+const CONTENT_RULE_MIN_VALUE_OPS = [
+  { id: '', text: '' },
   { id: '<', text: '< (less than)' },
   { id: '<=', text: '\u2264 (less than or equal to)' }
 ];
@@ -85,14 +89,28 @@ function setContent(jElem, ctrl) {
 
   let table = JS.dom(tableOpts);
   let jTable = jQuery(table).appendTo(jElem.html(''));
+  let colDefs = panel.columnDefs;
+  let colDefRgxs = colDefs.map(colDef => parseRegExp(colDef.filter));
+  let colDefIndexByCol = data.columnTexts.map(
+    title => colDefRgxs.reduce(
+      (carry, colDefRgx, colDefIndex) => (carry < 0 && colDefRgx.test(title)) ? colDefIndex : carry,
+      -1
+    )
+  );
+  let colDefContentRuleFilters = colDefs.map(
+    colDef => colDef.contentRules.map(
+      rule => rule.type === 'FILTER' ? parseRegExp(rule.filter) : null
+    )
+  );
   let options = {
     data: data.rows,
-    columns: data.columnTexts.map(title => {
+    columns: data.columnTexts.map((title, colIndex) => {
       let result = { title };
 
-      for (let colDefs = panel.columnDefs, i = 0, l = colDefs.length; i < l; i++) {
-        let colDef = colDefs[i];
-        let filter = parseRegExp(colDef.filter);
+      let colDefIndex = colDefIndexByCol[colIndex];
+      let colDef = colDefs[colDefIndex];
+      if (colDef) {
+        let filter = colDefRgxs[colDefIndex];
         if (filter.test(title)) {
           if (colDef.display) {
             result.title = title.replace(filter, colDef.display);
@@ -110,7 +128,6 @@ function setContent(jElem, ctrl) {
           else {
             result.visible = colDef.isVisible;
           }
-          break;
         }
       }
 
@@ -123,7 +140,73 @@ function setContent(jElem, ctrl) {
     searching: panel.allowSearching,
     lengthChange: panel.allowLengthChange,
     order: [],
-    pageLength: 50
+    pageLength: 5,
+    rowCallback: function(tr, rowData) {
+      let tdIndex = -1;
+      rowData.map((cell, colIndex) => {
+        let colDefIndex = colDefIndexByCol[colIndex];
+        let colDef = colDefs[colDefIndex];
+
+        if (!colDef || colDef.isVisible) {
+          tdIndex++;
+        }
+
+        if (colDef) {
+          if (colDef.isVisible) {
+            let rules = colDef.contentRules;
+            rules.forEach((rule, ruleIndex) => {
+              let isMatch = true;
+              let type = rule.type;
+              if (type === 'FILTER') {
+                isMatch = colDefContentRuleFilters[colDefIndex][ruleIndex].test(cell);
+              }
+              else if (type === 'RANGE') {
+                let minValue = rule.minValue;
+                let minIsNum = RGX_SIMPLE_NUMBER.test(minValue);
+                let maxValue = rule.maxValue;
+                let maxIsNum = RGX_SIMPLE_NUMBER.test(maxValue);
+                if (minIsNum) {
+                  minValue = +minValue;
+                }
+                if (maxIsNum) {
+                  maxValue = +maxValue;
+                }
+
+                if (minIsNum || maxIsNum) {
+                  cell = +cell;
+                }
+
+                let minValueOp = rule.minValueOp;
+                if (minValueOp) {
+                  isMatch = isMatch && (minValueOp === '<=' ? minValue <= cell : (minValue < cell));
+                }
+                let maxValueOp = rule.maxValueOp;
+                if (maxValueOp) {
+                  isMatch = isMatch && (maxValueOp === '>=' ? maxValue >= cell : (maxValue > cell));
+                }
+              }
+              else {
+                isMatch = cell == null;
+              }
+
+              isMatch = isMatch !== rule.negateCriteria;
+
+              // If this is a match apply the class(es)
+              if (isMatch) {
+                if (rule.classNames) {
+                  if (rule.classLevel === 'ROW') {
+                    jQuery(tr).addClass(rule.classNames);
+                  }
+                  else {
+                    jQuery('>td', tr).eq(tdIndex).addClass(rule.classNames);
+                  }
+                }
+              }
+            });
+          }
+        }
+      });
+    }
   };
   let dataTable = jTable.DataTable(options);
 
@@ -135,7 +218,7 @@ function setContent(jElem, ctrl) {
     elem.appendChild(JS.css(JSON.parse(panel.pseudoCSS), elem));
   });
 
-  console.log({ data, height, ctrl, jElem, jTable, dataTable, options, table });
+  console.log({ colDefRgxs, colDefIndexByCol });
 }
 
 function fixDataTableSize(jWrap, fullHeight) {

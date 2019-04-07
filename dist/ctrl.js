@@ -43,6 +43,7 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 
 function _setPrototypeOf(o, p) { _setPrototypeOf = Object.setPrototypeOf || function _setPrototypeOf(o, p) { o.__proto__ = p; return o; }; return _setPrototypeOf(o, p); }
 
+var RGX_SIMPLE_NUMBER = /^\d+(\.\d+)?$/;
 var DEFAULT_PSEUDO_CSS = {
   ".theme-dark &": {
     "color": "white"
@@ -85,14 +86,20 @@ var CONTENT_RULE_CLASS_LEVELS = [{
   id: 'ROW',
   text: 'Entire row'
 }];
-var CONTENT_RULE_MIN_VALUE_OPS = [{
+var CONTENT_RULE_MAX_VALUE_OPS = [{
+  id: '',
+  text: ''
+}, {
   id: '>=',
   text: "\u2265 (greater than or equal to)"
 }, {
   id: '>',
   text: '> (greater than)'
 }];
-var CONTENT_RULE_MAX_VALUE_OPS = [{
+var CONTENT_RULE_MIN_VALUE_OPS = [{
+  id: '',
+  text: ''
+}, {
   id: '<',
   text: '< (less than)'
 }, {
@@ -136,16 +143,31 @@ function setContent(jElem, ctrl) {
 
   var table = JS.dom(tableOpts);
   var jTable = jQuery(table).appendTo(jElem.html(''));
+  var colDefs = panel.columnDefs;
+  var colDefRgxs = colDefs.map(function (colDef) {
+    return parseRegExp(colDef.filter);
+  });
+  var colDefIndexByCol = data.columnTexts.map(function (title) {
+    return colDefRgxs.reduce(function (carry, colDefRgx, colDefIndex) {
+      return carry < 0 && colDefRgx.test(title) ? colDefIndex : carry;
+    }, -1);
+  });
+  var colDefContentRuleFilters = colDefs.map(function (colDef) {
+    return colDef.contentRules.map(function (rule) {
+      return rule.type === 'FILTER' ? parseRegExp(rule.filter) : null;
+    });
+  });
   var options = {
     data: data.rows,
-    columns: data.columnTexts.map(function (title) {
+    columns: data.columnTexts.map(function (title, colIndex) {
       var result = {
         title: title
       };
+      var colDefIndex = colDefIndexByCol[colIndex];
+      var colDef = colDefs[colDefIndex];
 
-      for (var colDefs = panel.columnDefs, i = 0, l = colDefs.length; i < l; i++) {
-        var colDef = colDefs[i];
-        var filter = parseRegExp(colDef.filter);
+      if (colDef) {
+        var filter = colDefRgxs[colDefIndex];
 
         if (filter.test(title)) {
           if (colDef.display) {
@@ -166,8 +188,6 @@ function setContent(jElem, ctrl) {
           } else {
             result.visible = colDef.isVisible;
           }
-
-          break;
         }
       }
 
@@ -180,7 +200,77 @@ function setContent(jElem, ctrl) {
     searching: panel.allowSearching,
     lengthChange: panel.allowLengthChange,
     order: [],
-    pageLength: 50
+    pageLength: 5,
+    rowCallback: function rowCallback(tr, rowData) {
+      var tdIndex = -1;
+      rowData.map(function (cell, colIndex) {
+        var colDefIndex = colDefIndexByCol[colIndex];
+        var colDef = colDefs[colDefIndex];
+
+        if (!colDef || colDef.isVisible) {
+          tdIndex++;
+        }
+
+        if (colDef) {
+          if (colDef.isVisible) {
+            var rules = colDef.contentRules;
+            rules.forEach(function (rule, ruleIndex) {
+              var isMatch = true;
+              var type = rule.type;
+
+              if (type === 'FILTER') {
+                isMatch = colDefContentRuleFilters[colDefIndex][ruleIndex].test(cell);
+              } else if (type === 'RANGE') {
+                var minValue = rule.minValue;
+
+                if (RGX_SIMPLE_NUMBER.test(minValue)) {
+                  minValue = +minValue;
+                }
+
+                var maxValue = rule.maxValue;
+
+                if (RGX_SIMPLE_NUMBER.test(maxValue)) {
+                  maxValue = +maxValue;
+                }
+
+                var minValueOp = rule.minValueOp;
+
+                if (minValueOp) {
+                  isMatch = isMatch && (minValueOp === '<=' ? minValue <= cell : minValue < cell);
+                }
+
+                var maxValueOp = rule.maxValueOp;
+
+                if (maxValueOp) {
+                  isMatch = isMatch && (maxValueOp === '>=' ? maxValue >= cell : maxValue > cell);
+                }
+              } else {
+                isMatch = cell == null;
+              }
+
+              isMatch = isMatch !== rule.negateCriteria; // If this is a match apply the class(es)
+
+              if (isMatch) {
+                if (rule.classNames) {
+                  if (rule.classLevel === 'ROW') {
+                    jQuery(tr).addClass(rule.classNames);
+                  } else {
+                    jQuery('>td', tr).eq(tdIndex).addClass(rule.classNames);
+                    console.log(192, {
+                      tr: tr,
+                      cell: cell,
+                      rowData: rowData,
+                      rule: rule,
+                      colDef: colDef
+                    });
+                  }
+                }
+              }
+            });
+          }
+        }
+      });
+    }
   };
   var dataTable = jTable.DataTable(options);
   jElem.find('.dataTables_scrollHeadInner').css('margin', '0 auto');
@@ -190,14 +280,8 @@ function setContent(jElem, ctrl) {
     elem.appendChild(JS.css(JSON.parse(panel.pseudoCSS), elem));
   });
   console.log({
-    data: data,
-    height: height,
-    ctrl: ctrl,
-    jElem: jElem,
-    jTable: jTable,
-    dataTable: dataTable,
-    options: options,
-    table: table
+    colDefRgxs: colDefRgxs,
+    colDefIndexByCol: colDefIndexByCol
   });
 }
 
