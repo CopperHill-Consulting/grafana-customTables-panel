@@ -70,33 +70,34 @@ var DEFAULT_PSEUDO_CSS = {
 };
 var CONTENT_RULE_TYPES = [{
   id: 'FILTER',
-  text: 'Filter by exact text or RegExp'
-}, {
-  id: 'EXACT',
-  text: "Match or don't match a number"
+  text: 'Filter by exact value or RegExp'
 }, {
   id: 'RANGE',
   text: "Match a range of values"
+}, {
+  id: 'NULL',
+  text: "Is NULL"
 }];
 var CONTENT_RULE_CLASS_LEVELS = [{
-  id: 'ROW',
-  text: 'Entire row'
-}, {
   id: 'CELL',
   text: "Only the cell"
+}, {
+  id: 'ROW',
+  text: 'Entire row'
 }];
-var CONTENT_RULE_MIN_MAX_VALUE_OPS = [{
-  id: '<',
-  text: '< (less than)'
-}, {
-  id: '<=',
-  text: "\u2264 (less than or equal to)"
-}, {
+var CONTENT_RULE_MIN_VALUE_OPS = [{
   id: '>=',
   text: "\u2265 (greater than or equal to)"
 }, {
   id: '>',
   text: '> (greater than)'
+}];
+var CONTENT_RULE_MAX_VALUE_OPS = [{
+  id: '<',
+  text: '< (less than)'
+}, {
+  id: '<=',
+  text: "\u2264 (less than or equal to)"
 }];
 var CONTENT_RULE_EXACT_NUM_OPS = [{
   id: '==',
@@ -379,13 +380,12 @@ function (_MetricsPanelCtrl) {
         classNames: '',
         classLevel: CONTENT_RULE_CLASS_LEVELS[0].id,
         filter: '',
+        negateCriteria: false,
         display: '',
         minValue: null,
         maxValue: null,
         minValueOp: null,
         maxValueOp: null,
-        exactNum: null,
-        exactNumOp: null,
         url: '',
         openNewWindow: true
       });

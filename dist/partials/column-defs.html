@@ -39,42 +39,24 @@
         <label class="gf-form-label width-12">Type</label>
         <select class="gf-form-input" ng-model="rule.type" ng-options="t.id as t.text for t in ctrl.getConstByName('CONTENT_RULE_TYPES')" ng-change="ctrl.renderNow()"></select>
       </div>
-      <div class="gf-form">
-        <label class="gf-form-label width-12">Class Name(s)</label>
-        <input type="text" class="gf-form-input width-max" ng-model="rule.classNames" ng-change="ctrl.renderAfterOneSec()" placeholder="eg. my-class">
-      </div>
-      <div class="gf-form">
-        <label class="gf-form-label width-12">Class Level</label>
-        <select class="gf-form-input" ng-model="rule.classLevel" ng-options="t.id as t.text for t in ctrl.getConstByName('CONTENT_RULE_CLASS_LEVELS')" ng-change="ctrl.renderNow()"></select>
-      </div>
       <div ng-if="rule.type === 'FILTER'">
         <div class="gf-form">
           <label class="gf-form-label width-12">Filter</label>
           <input type="text" class="gf-form-input width-max" ng-model="rule.filter" ng-change="ctrl.renderAfterOneSec()" placeholder="Name or RegExp matching column.">
         </div>
       </div>
-      <div ng-if="rule.type === 'EXACT'">
-        <div class="gf-form">
-          <label class="gf-form-label width-12">Criteria</label>
-          <select class="gf-form-input" ng-model="rule.exactNumOp" ng-options="t.id as t.text for t in ctrl.getConstByName('CONTENT_RULE_EXACT_NUM_OPS')" ng-change="ctrl.renderNow()"></select>
-        </div>
-        <div class="gf-form">
-          <label class="gf-form-label width-12">Number To Check</label>
-          <input type="number" class="gf-form-input width-max" ng-model="rule.exactNum" ng-change="ctrl.renderAfterOneSec()" placeholder="eg. 89">
-        </div>
-      </div>
       <div ng-if="rule.type === 'RANGE'">
         <div class="gf-form">
-          <label class="gf-form-label width-12">Lower Bound Criteria</label>
-          <select class="gf-form-input" ng-model="rule.minValueOp" ng-options="t.id as t.text for t in ctrl.getConstByName('CONTENT_RULE_MIN_MAX_VALUE_OPS').slice(2)" ng-change="ctrl.renderNow()"></select>
+          <label class="gf-form-label width-12">Lower Bound Operator</label>
+          <select class="gf-form-input" ng-model="rule.minValueOp" ng-options="t.id as t.text for t in ctrl.getConstByName('CONTENT_RULE_MIN_VALUE_OPS')" ng-change="ctrl.renderNow()"></select>
         </div>
         <div class="gf-form">
           <label class="gf-form-label width-12">Lower Bound Value</label>
           <input type="text" class="gf-form-input width-max" ng-model="rule.minValue" ng-change="ctrl.renderAfterOneSec()" placeholder="eg. 70">
         </div>
         <div class="gf-form">
-          <label class="gf-form-label width-12">Upper Bound Criteria</label>
-          <select class="gf-form-input" ng-model="rule.maxValueOp" ng-options="t.id as t.text for t in ctrl.getConstByName('CONTENT_RULE_MIN_MAX_VALUE_OPS').slice(0, 2)" ng-change="ctrl.renderNow()"></select>
+          <label class="gf-form-label width-12">Upper Bound Operator</label>
+          <select class="gf-form-input" ng-model="rule.maxValueOp" ng-options="t.id as t.text for t in ctrl.getConstByName('CONTENT_RULE_MAX_VALUE_OPS')" ng-change="ctrl.renderNow()"></select>
         </div>
         <div class="gf-form">
           <label class="gf-form-label width-12">Upper Bound Value</label>
@@ -82,8 +64,25 @@
         </div>
       </div>
       <div class="gf-form">
+        <gf-form-switch
+            class="gf-form"
+            label="Negate the Criteria"
+            label-class="width-12"
+            checked="rule.negateCriteria"
+            on-change="ctrl.renderNow()">
+        </gf-form-switch>
+      </div>
+      <div class="gf-form">
         <label class="gf-form-label width-12">Display</label>
         <input type="text" class="gf-form-input width-max" ng-model="rule.display" ng-change="ctrl.renderAfterOneSec()" placeholder="eg. Value = $&amp;">
+      </div>
+      <div class="gf-form">
+        <label class="gf-form-label width-12">Class Name(s)</label>
+        <input type="text" class="gf-form-input width-max" ng-model="rule.classNames" ng-change="ctrl.renderAfterOneSec()" placeholder="eg. my-class">
+      </div>
+      <div class="gf-form">
+        <label class="gf-form-label width-12">Class Level</label>
+        <select class="gf-form-input" ng-model="rule.classLevel" ng-options="t.id as t.text for t in ctrl.getConstByName('CONTENT_RULE_CLASS_LEVELS')" ng-change="ctrl.renderNow()"></select>
       </div>
       <div class="gf-form">
         <label class="gf-form-label width-12">Link URL</label>
@@ -93,7 +92,7 @@
         <gf-form-switch
             class="gf-form"
             label="Open In New Window"
-            label-class="width-auto"
+            label-class="width-12"
             checked="rule.openNewWindow"
             on-change="ctrl.renderNow()">
         </gf-form-switch>
