@@ -1,13 +1,13 @@
 {
-  "name": "westc-chartjs-panel",
+  "name": "copperhill-datatables-panel",
   "private": true,
   "version": "1.0.1",
   "description": "",
   "repository": {
     "type": "git",
-    "url": "https://github.com/westc/grafana-chartjs-panel.git"
+    "url": "https://github.com/CopperHill-Consulting/grafana-customTables-panel.git"
   },
-  "author": "westc",
+  "author": "cwest-consultch",
   "license": "MIT",
   "devDependencies": {
     "grunt": "^0.4.5",

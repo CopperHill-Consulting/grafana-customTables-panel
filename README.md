@@ -1,13 +1,13 @@
-## Chart.js Panel Plugin for Grafana
+## CopperHill Custom Table Panel Plugin for Grafana
 
-Create bar charts in Grafana using Chart.js.
+Create highly customizable tables in Grafana.
 
 ## Installation
 
 clone this repository into your plugin directory
 
 ```
-git clone https://github.com/CopperHill-Consulting/grafana-chartjs-panel.git
+git clone https://github.com/CopperHill-Consulting/grafana-customTables-panel.git
 sudo service grafana-server restart
 ```
 
