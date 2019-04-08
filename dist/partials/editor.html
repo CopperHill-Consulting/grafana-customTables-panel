@@ -1,19 +1,23 @@
 <div>
   <div class="gf-form-inline">
     <div class="gf-form gf-form--grow">
-      <label class="gf-form-label width-auto">
-        <tip>
-          If the columns ordinarily wouldn't fill the space the columns will be stretched.
-          Don't use this options if there are many columns and you want to set the size of some or all of them.
-        </tip>
+      <label for="chkIsFullWidth" class="gf-form-switch-container">
+        <div class="gf-form-label width-12">
+          Full Width
+          <tip>
+            If the columns ordinarily wouldn't fill the space the columns will be stretched.
+            Don't use this options if there are many columns and you want to set the size of some or all of them.
+          </tip>
+        </div>
+        <div class="gf-form-switch">
+          <input id="chkIsFullWidth"
+              type="checkbox"
+              ng-model="ctrl.panel.isFullWidth"
+              ng-change="ctrl.renderNow()"
+              class="ng-pristine ng-untouched ng-valid ng-empty" />
+          <span class="gf-form-switch__slider"></span>
+        </div>
       </label>
-      <gf-form-switch
-          class="gf-form"
-          label="Full Width"
-          label-class="width-auto"
-          checked="ctrl.panel.isFullWidth"
-          on-change="ctrl.renderNow()">
-      </gf-form-switch>
     </div>
   </div>
   <div class="gf-form-inline">
@@ -21,7 +25,7 @@
       <gf-form-switch
           class="gf-form"
           label="Allow Ordering"
-          label-class="width-auto"
+          label-class="width-12"
           checked="ctrl.panel.allowOrdering"
           on-change="ctrl.renderNow()">
       </gf-form-switch>
@@ -32,7 +36,7 @@
       <gf-form-switch
           class="gf-form"
           label="Allow Searching"
-          label-class="width-auto"
+          label-class="width-12"
           checked="ctrl.panel.allowSearching"
           on-change="ctrl.renderNow()">
       </gf-form-switch>
@@ -43,10 +47,28 @@
       <gf-form-switch
           class="gf-form"
           label="Allow Length Change"
-          label-class="width-auto"
+          label-class="width-12"
           checked="ctrl.panel.allowLengthChange"
           on-change="ctrl.renderNow()">
       </gf-form-switch>
+    </div>
+  </div>
+  <div ng-if="ctrl.panel.allowLengthChange">
+    <div class="gf-form">
+      <label class="gf-form-label width-12">Page Lengths</label>
+      <input type="text"
+          class="gf-form-input width-max"
+          ng-model="ctrl.panel.pageLengths"
+          ng-change="ctrl.renderAfterOneSec()"
+          placeholder="eg. 10,25,50,100,-1" />
+    </div>
+    <div class="gf-form">
+      <label class="gf-form-label width-12">Initial Page Length</label>
+      <select class="gf-form-input"
+          ng-model="ctrl.panel.initialPageLength"
+          ng-options="opt.value as opt.text for opt in ctrl.pageLengthOptions"
+          ng-change="ctrl.renderAfterOneSec()">
+      </select>
     </div>
   </div>
 </div>

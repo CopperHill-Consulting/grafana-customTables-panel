@@ -10,25 +10,27 @@
   <div class="gf-form">
     <gf-form-switch class="gf-form" label="Is Visible" label-class="width-12" checked="cd.isVisible" on-change="ctrl.renderNow()"></gf-form-switch>
   </div>
-  <div class="gf-form" ng-if="cd.isVisible">
-    <gf-form-switch class="gf-form" label="Is Searchable" label-class="width-12" checked="cd.isSearchable" on-change="ctrl.renderNow()"></gf-form-switch>
-  </div>
-  <div class="gf-form" ng-if="cd.isVisible">
-    <gf-form-switch class="gf-form" label="Is Sortable" label-class="width-12" checked="cd.isOrderable" on-change="ctrl.renderNow()"></gf-form-switch>
-  </div>
-  <div class="gf-form" ng-if="cd.isVisible">
-    <label class="gf-form-label width-12">Width</label>
-    <input type="text" class="gf-form-input width-max" ng-model="cd.width" ng-change="ctrl.renderAfterOneSec()" placeholder="eg. 20vh or 150px or 33%">
-  </div>
-  <div class="gf-form" ng-if="cd.isVisible">
-    <label class="gf-form-label width-12">
-      Class Name(s)
-      <tip>
-        These class names will be added to all of the <code>TH</code> and <code>TD</code> elements in these columns.
-        You can use this to then style these columns in the CSS stylying section.
-      </tip>
-    </label>
-    <input type="text" class="gf-form-input width-max" ng-model="cd.classNames" ng-change="ctrl.renderAfterOneSec()" placeholder="eg. col-ages">
+  <div ng-if="cd.isVisible">
+    <div class="gf-form">
+      <gf-form-switch class="gf-form" label="Is Searchable" label-class="width-12" checked="cd.isSearchable" on-change="ctrl.renderNow()"></gf-form-switch>
+    </div>
+    <div class="gf-form">
+      <gf-form-switch class="gf-form" label="Is Sortable" label-class="width-12" checked="cd.isOrderable" on-change="ctrl.renderNow()"></gf-form-switch>
+    </div>
+    <div class="gf-form">
+      <label class="gf-form-label width-12">Width</label>
+      <input type="text" class="gf-form-input width-max" ng-model="cd.width" ng-change="ctrl.renderAfterOneSec()" placeholder="eg. 20vh or 150px or 33%">
+    </div>
+    <div class="gf-form">
+      <label class="gf-form-label width-12">
+        Class Name(s)
+        <tip>
+          These class names will be added to all of the <code>TH</code> and <code>TD</code> elements in these columns.
+          You can use this to then style these columns in the CSS stylying section.
+        </tip>
+      </label>
+      <input type="text" class="gf-form-input width-max" ng-model="cd.classNames" ng-change="ctrl.renderAfterOneSec()" placeholder="eg. col-ages">
+    </div>
   </div>
 
   <div style="border: 2em solid rgba(0,0,0,0); border-left: 2em solid hsla(215,25%,75%,0.375); padding-left: 1em;">

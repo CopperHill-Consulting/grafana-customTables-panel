@@ -9,31 +9,31 @@ import './external/datatables-grafana-fix.css!';
 
 const RGX_SIMPLE_NUMBER = /^\d+(\.\d+)?$/;
 
-const DEFAULT_PSEUDO_CSS = {
-  ".theme-dark &": {
-    "color": "white"
-  },
-  "table.dataTable tbody tr": {
-    "&:hover": {
-      "background-image": "linear-gradient(0deg, rgba(128,128,128,0.05), rgba(128,128,128,0.05))"
-    },
-    "&, &.even, &.odd": {
-      "background-color": "transparent",
-      ">.sorting_1, >.sorting_2, >.sorting_3": {
-        "background-color": "transparent"
-      },
-      "td": {
-        "border-color": "transparent"
-      }
-    },
-    "&.odd": {
-      "background-color": "rgba(128,128,128,0.2)"
-    },
-    "&.even": {
-      "background-color": "rgba(128,128,128,0.1)"
+const DEFAULT_PSEUDO_CSS = `
+.theme-dark & {
+  color: white;
+}
+table.dataTable tbody tr {
+  &:hover td {
+    background-image: linear-gradient(0deg, rgba(128,128,128,0.1), rgba(128,128,128,0.1));
+  }
+  &, &.even, &.odd {
+    background-color: transparent;
+    >.sorting_1, >.sorting_2, >.sorting_3 {
+      background-color: transparent;
+    }
+    td {
+      border-color: transparent;
     }
   }
-};
+  &.odd {
+    background-color: rgba(128,128,128,0.3);
+  }
+  &.even {
+    background-color: rgba(128,128,128,0.15);
+  }
+}
+`;
 
 const CONTENT_RULE_TYPES = [
   { id: 'FILTER', text: 'Filter by exact value or RegExp' },
@@ -64,17 +64,53 @@ const CONTENT_RULE_EXACT_NUM_OPS = [
 ];
 
 const DEFAULT_PANEL_SETTINGS = {
-  pseudoCSS: JSON.stringify(DEFAULT_PSEUDO_CSS, null, 2),
+  pseudoCSS: DEFAULT_PSEUDO_CSS,
   columnDefs: [],
   isFullWidth: true,
   allowOrdering: true,
   allowSearching: true,
-  allowLengthChange: true
+  allowLengthChange: true,
+  pageLengths: '10,15,20,25,50,100',
+  initialPageLength: 25
 };
 
 function parseRegExp(strPattern) {
   let parts = /^\/(.+)\/(\w*)$/.exec(strPattern);
   return parts ? new RegExp(parts[1], parts[2]) : new RegExp('^' + _.escapeRegExp(strPattern) + '$', 'i');
+}
+
+function pseudoCssToJSON(strLess) {
+  var openCount = 0;
+  var closeCount = 0;
+
+  strLess = strLess
+    .replace(/\/\*[^]*?\*\//g, '')
+    .replace(
+      /([^\{\};]+)\{|([^:\{\}]+):([^;]+);|\}/g,
+      function (match, ruleName, styleName, styleValue) {
+        if (ruleName) {
+          openCount++;
+          return JSON.stringify(ruleName.trim()) + ":{";
+        }
+        if (styleName) {
+          return JSON.stringify(styleName.trim()) + ":" + JSON.stringify(styleValue.trim()) + ",";
+        }
+        closeCount++;
+        return "},";
+      }
+    )
+    .replace(/,\s*(\}|$)/g, '$1');
+
+  try {
+    return JSON.stringify(JSON.parse("{" + strLess + "}"), null, 2);
+  }
+  catch (e) {
+    throw new Error(
+      openCount !== closeCount
+        ? "Pseudo-CSS contains too many " + (openCount > closeCount ? "open" : "clos") + "ing braces."
+        : "Pseudo-CSS couldn't be parsed correctly."
+    );
+  }
 }
 
 function setContent(jElem, ctrl) {
@@ -139,8 +175,15 @@ function setContent(jElem, ctrl) {
     ordering: panel.allowOrdering,
     searching: panel.allowSearching,
     lengthChange: panel.allowLengthChange,
+    lengthMenu: ctrl.getPageLengthOptions().reduce(
+      (arr, opt) => [
+        arr[0].concat([opt.value === Infinity ? -1 : opt.value]),
+        arr[1].concat([opt.value === Infinity ? 'All' : opt.value])
+      ],
+      [[],[]]
+    ),
+    pageLength: panel.initialPageLength,
     order: [],
-    pageLength: 5,
     rowCallback: function(tr, rowData) {
       let tdIndex = -1;
       rowData.map((cell, colIndex) => {
@@ -215,7 +258,7 @@ function setContent(jElem, ctrl) {
 
   jElem.each((i, elem) => {
     elem.className = elem.className.replace(/\b_\d+\b/g, ' ').replace(/\s+/g, ' ').trim();
-    elem.appendChild(JS.css(JSON.parse(panel.pseudoCSS), elem));
+    elem.appendChild(JS.css(JSON.parse(pseudoCssToJSON(panel.pseudoCSS)), elem));
   });
 
   console.log({ colDefRgxs, colDefIndexByCol });
@@ -236,6 +279,8 @@ function renderNow(e, jElem) {
       data = ctrl.data,
       jContent = jElem.find('.panel-content').css('position', 'relative').html(''),
       elemContent = jContent[0];
+
+  ctrl.pageLengthOptions = ctrl.getPageLengthOptions();
   
   if (data && data.rows.length) {
     if (data.type === 'table') {
@@ -364,6 +409,22 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
   removeColumnContentRule(contentRule, columnDef) {
     let contentRules = columnDef.contentRules;
     contentRules.splice(contentRules.indexOf(contentRule), 1);
+  }
+
+  getPageLengthOptions() {
+    return this.panel.pageLengths
+        .replace(/\s+/g, '')
+        .split(',')
+        .reduce(
+          (arr, x) => {
+            if (+x === parseInt(x, 10) && +x >= -1) {
+              x = x == -1 ? Infinity : +x;
+              arr.push({ value: x, text: x === Infinity ? 'All' : x });
+            }
+            return arr;
+          },
+          []
+        );
   }
 
   renderNow(e, elem) {

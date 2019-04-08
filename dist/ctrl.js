@@ -44,31 +44,7 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 function _setPrototypeOf(o, p) { _setPrototypeOf = Object.setPrototypeOf || function _setPrototypeOf(o, p) { o.__proto__ = p; return o; }; return _setPrototypeOf(o, p); }
 
 var RGX_SIMPLE_NUMBER = /^\d+(\.\d+)?$/;
-var DEFAULT_PSEUDO_CSS = {
-  ".theme-dark &": {
-    "color": "white"
-  },
-  "table.dataTable tbody tr": {
-    "&:hover": {
-      "background-image": "linear-gradient(0deg, rgba(128,128,128,0.05), rgba(128,128,128,0.05))"
-    },
-    "&, &.even, &.odd": {
-      "background-color": "transparent",
-      ">.sorting_1, >.sorting_2, >.sorting_3": {
-        "background-color": "transparent"
-      },
-      "td": {
-        "border-color": "transparent"
-      }
-    },
-    "&.odd": {
-      "background-color": "rgba(128,128,128,0.2)"
-    },
-    "&.even": {
-      "background-color": "rgba(128,128,128,0.1)"
-    }
-  }
-};
+var DEFAULT_PSEUDO_CSS = "\n.theme-dark & {\n  color: white;\n}\ntable.dataTable tbody tr {\n  &:hover td {\n    background-image: linear-gradient(0deg, rgba(128,128,128,0.1), rgba(128,128,128,0.1));\n  }\n  &, &.even, &.odd {\n    background-color: transparent;\n    >.sorting_1, >.sorting_2, >.sorting_3 {\n      background-color: transparent;\n    }\n    td {\n      border-color: transparent;\n    }\n  }\n  &.odd {\n    background-color: rgba(128,128,128,0.3);\n  }\n  &.even {\n    background-color: rgba(128,128,128,0.15);\n  }\n}\n";
 var CONTENT_RULE_TYPES = [{
   id: 'FILTER',
   text: 'Filter by exact value or RegExp'
@@ -114,17 +90,43 @@ var CONTENT_RULE_EXACT_NUM_OPS = [{
   text: "\u2260 (doesn't)"
 }];
 var DEFAULT_PANEL_SETTINGS = {
-  pseudoCSS: JSON.stringify(DEFAULT_PSEUDO_CSS, null, 2),
+  pseudoCSS: DEFAULT_PSEUDO_CSS,
   columnDefs: [],
   isFullWidth: true,
   allowOrdering: true,
   allowSearching: true,
-  allowLengthChange: true
+  allowLengthChange: true,
+  pageLengths: '10,15,20,25,50,100',
+  initialPageLength: 25
 };
 
 function parseRegExp(strPattern) {
   var parts = /^\/(.+)\/(\w*)$/.exec(strPattern);
   return parts ? new RegExp(parts[1], parts[2]) : new RegExp('^' + _lodash.default.escapeRegExp(strPattern) + '$', 'i');
+}
+
+function pseudoCssToJSON(strLess) {
+  var openCount = 0;
+  var closeCount = 0;
+  strLess = strLess.replace(/\/\*[^]*?\*\//g, '').replace(/([^\{\};]+)\{|([^:\{\}]+):([^;]+);|\}/g, function (match, ruleName, styleName, styleValue) {
+    if (ruleName) {
+      openCount++;
+      return JSON.stringify(ruleName.trim()) + ":{";
+    }
+
+    if (styleName) {
+      return JSON.stringify(styleName.trim()) + ":" + JSON.stringify(styleValue.trim()) + ",";
+    }
+
+    closeCount++;
+    return "},";
+  }).replace(/,\s*(\}|$)/g, '$1');
+
+  try {
+    return JSON.stringify(JSON.parse("{" + strLess + "}"), null, 2);
+  } catch (e) {
+    throw new Error(openCount !== closeCount ? "Pseudo-CSS contains too many " + (openCount > closeCount ? "open" : "clos") + "ing braces." : "Pseudo-CSS couldn't be parsed correctly.");
+  }
 }
 
 function setContent(jElem, ctrl) {
@@ -199,8 +201,11 @@ function setContent(jElem, ctrl) {
     ordering: panel.allowOrdering,
     searching: panel.allowSearching,
     lengthChange: panel.allowLengthChange,
+    lengthMenu: ctrl.getPageLengthOptions().reduce(function (arr, opt) {
+      return [arr[0].concat([opt.value === Infinity ? -1 : opt.value]), arr[1].concat([opt.value === Infinity ? 'All' : opt.value])];
+    }, [[], []]),
+    pageLength: panel.initialPageLength,
     order: [],
-    pageLength: 5,
     rowCallback: function rowCallback(tr, rowData) {
       var tdIndex = -1;
       rowData.map(function (cell, colIndex) {
@@ -222,15 +227,20 @@ function setContent(jElem, ctrl) {
                 isMatch = colDefContentRuleFilters[colDefIndex][ruleIndex].test(cell);
               } else if (type === 'RANGE') {
                 var minValue = rule.minValue;
+                var minIsNum = RGX_SIMPLE_NUMBER.test(minValue);
+                var maxValue = rule.maxValue;
+                var maxIsNum = RGX_SIMPLE_NUMBER.test(maxValue);
 
-                if (RGX_SIMPLE_NUMBER.test(minValue)) {
+                if (minIsNum) {
                   minValue = +minValue;
                 }
 
-                var maxValue = rule.maxValue;
-
-                if (RGX_SIMPLE_NUMBER.test(maxValue)) {
+                if (maxIsNum) {
                   maxValue = +maxValue;
+                }
+
+                if (minIsNum || maxIsNum) {
+                  cell = +cell;
                 }
 
                 var minValueOp = rule.minValueOp;
@@ -256,13 +266,6 @@ function setContent(jElem, ctrl) {
                     jQuery(tr).addClass(rule.classNames);
                   } else {
                     jQuery('>td', tr).eq(tdIndex).addClass(rule.classNames);
-                    console.log(192, {
-                      tr: tr,
-                      cell: cell,
-                      rowData: rowData,
-                      rule: rule,
-                      colDef: colDef
-                    });
                   }
                 }
               }
@@ -277,7 +280,7 @@ function setContent(jElem, ctrl) {
   fixDataTableSize(jElem.find('.dataTables_wrapper'), height);
   jElem.each(function (i, elem) {
     elem.className = elem.className.replace(/\b_\d+\b/g, ' ').replace(/\s+/g, ' ').trim();
-    elem.appendChild(JS.css(JSON.parse(panel.pseudoCSS), elem));
+    elem.appendChild(JS.css(JSON.parse(pseudoCssToJSON(panel.pseudoCSS)), elem));
   });
   console.log({
     colDefRgxs: colDefRgxs,
@@ -300,6 +303,7 @@ function renderNow(e, jElem) {
       data = ctrl.data,
       jContent = jElem.find('.panel-content').css('position', 'relative').html(''),
       elemContent = jContent[0];
+  ctrl.pageLengthOptions = ctrl.getPageLengthOptions();
 
   if (data && data.rows.length) {
     if (data.type === 'table') {
@@ -479,6 +483,21 @@ function (_MetricsPanelCtrl) {
     value: function removeColumnContentRule(contentRule, columnDef) {
       var contentRules = columnDef.contentRules;
       contentRules.splice(contentRules.indexOf(contentRule), 1);
+    }
+  }, {
+    key: "getPageLengthOptions",
+    value: function getPageLengthOptions() {
+      return this.panel.pageLengths.replace(/\s+/g, '').split(',').reduce(function (arr, x) {
+        if (+x === parseInt(x, 10) && +x >= -1) {
+          x = x == -1 ? Infinity : +x;
+          arr.push({
+            value: x,
+            text: x === Infinity ? 'All' : x
+          });
+        }
+
+        return arr;
+      }, []);
     }
   }, {
     key: "renderNow",
