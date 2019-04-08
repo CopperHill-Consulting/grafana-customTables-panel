@@ -1,6 +1,7 @@
 import {MetricsPanelCtrl} from 'app/plugins/sdk';
 import _ from 'lodash';
 import * as JS from './external/YourJS.min';
+import './external/toCSV';
 import './external/datatables/js/jquery.dataTables.min';
 import './external/datatables/js/dataTables.fixedHeader.min';
 import './external/datatables/css/jquery.dataTables.min.css!';
@@ -116,6 +117,7 @@ function pseudoCssToJSON(strLess) {
 function setContent(jElem, ctrl) {
   let data = ctrl.data;
   let panel = ctrl.panel;
+  let varsByName = ctrl.getVarsByName();
   let height = jElem.height();
 
   let tableOpts = { _: 'table', cls: 'display', style: {} };
@@ -127,7 +129,8 @@ function setContent(jElem, ctrl) {
   let jTable = jQuery(table).appendTo(jElem.html(''));
   let colDefs = panel.columnDefs;
   let colDefRgxs = colDefs.map(colDef => parseRegExp(colDef.filter));
-  let colDefIndexByCol = data.columnTexts.map(
+  let columnTexts = data.columnTexts;
+  let colDefIndexByCol = columnTexts.map(
     title => colDefRgxs.reduce(
       (carry, colDefRgx, colDefIndex) => (carry < 0 && colDefRgx.test(title)) ? colDefIndex : carry,
       -1
@@ -140,7 +143,7 @@ function setContent(jElem, ctrl) {
   );
   let options = {
     data: data.rows,
-    columns: data.columnTexts.map((title, colIndex) => {
+    columns: columnTexts.map((title, colIndex) => {
       let result = { title };
 
       let colDefIndex = colDefIndexByCol[colIndex];
@@ -186,6 +189,10 @@ function setContent(jElem, ctrl) {
     order: [],
     rowCallback: function(tr, rowData) {
       let tdIndex = -1;
+      let cellsByColName = rowData.reduceRight(
+        (carry, val, i) => _.extend(carry, { [columnTexts[i]]: val }),
+        {}
+      );
       rowData.map((cell, colIndex) => {
         let colDefIndex = colDefIndexByCol[colIndex];
         let colDef = colDefs[colDefIndex];
@@ -197,11 +204,14 @@ function setContent(jElem, ctrl) {
         if (colDef) {
           if (colDef.isVisible) {
             let rules = colDef.contentRules;
-            rules.forEach((rule, ruleIndex) => {
+            // Use Array#find() solely to match the first applicable rule...
+            rules.find((rule, ruleIndex) => {
               let isMatch = true;
               let type = rule.type;
+              let colDefContentRuleFilter = colDefContentRuleFilters[colDefIndex][ruleIndex];
+              let gcvOptions = { cell, cellsByColName, rule, colDefContentRuleFilter, ctrl, varsByName };
               if (type === 'FILTER') {
-                isMatch = colDefContentRuleFilters[colDefIndex][ruleIndex].test(cell);
+                isMatch = colDefContentRuleFilter.test(cell);
               }
               else if (type === 'RANGE') {
                 let minValue = rule.minValue;
@@ -236,16 +246,31 @@ function setContent(jElem, ctrl) {
 
               // If this is a match apply the class(es)
               if (isMatch) {
+                let jTD = jQuery('>td', tr).eq(tdIndex);
                 if (rule.classNames) {
+                  let classNames = getCellValue(rule.classNames, false, gcvOptions);
                   if (rule.classLevel === 'ROW') {
-                    jQuery(tr).addClass(rule.classNames);
+                    jQuery(tr).addClass(classNames);
                   }
                   else {
-                    jQuery('>td', tr).eq(tdIndex).addClass(rule.classNames);
+                    jTD.addClass(classNames);
                   }
                 }
+
+                // Set the display
+                let display = getCellValue(rule.display, false, gcvOptions);
+                if (rule.displayIsHTML) {
+                  display = _.escape(display);
+                }
+                if (rule.url) {
+                  let url = _.escape(getCellValue(rule.url, true, gcvOptions));
+                  display = `<a href="${url}" target="${rule.openNewWindow ? '_blank' : '_self'}">${display}</a>`;
+                }
+                jTD.html(display);
               }
-            });
+
+              return isMatch;
+            }, false);
           }
         }
       });
@@ -260,8 +285,36 @@ function setContent(jElem, ctrl) {
     elem.className = elem.className.replace(/\b_\d+\b/g, ' ').replace(/\s+/g, ' ').trim();
     elem.appendChild(JS.css(JSON.parse(pseudoCssToJSON(panel.pseudoCSS)), elem));
   });
+}
 
-  console.log({ colDefRgxs, colDefIndexByCol });
+function getCellValue(valToMod, isForLink, { display, cellsByColName, rule, colDefContentRuleFilter, ctrl, varsByName }) {
+  let matches = rule.type === 'FILTER'
+    ? display != null
+      ? colDefContentRuleFilter.exec(display + '')
+      : { '0': 'null' }
+    : { '0': display };
+  _.extend(matches, { value: display, cell: display });
+  return valToMod.replace(
+    /\${(?:(value|cell|0|[1-9]\d*)|(col|var):((?:[^\}:\\]*|\\.)+))(?::(?:(raw)|(escape)|(param)(?::((?:[^\}:\\]*|\\.)+))?))?}/g,
+    function (match, matchesKey, type, name, isRaw, isEscape, isParam, paramName) {
+      isRaw = isRaw || !(isForLink || isEscape);
+      name = name && name.replace(/\\(.)/g, '$1');
+      let result = [...new Set(
+        matchesKey
+          ? _.has(matches, matchesKey) ? [matches[matchesKey]] : []
+          : type === 'col'
+            ? _.has(cellsByColName, name) ? [cellsByColName[name]] : []
+            : _.has(varsByName, name) ? varsByName[name] : []
+      )];
+      return result.length < 1
+        ? match
+        : isRaw
+          ? result.join(',')
+          : isParam
+            ? result.map(v => encodeURIComponent(paramName == undefined ? name : paramName) + '=' + encodeURIComponent(v)).join('&')
+            : encodeURIComponent(result.join(','));
+    }
+  )
 }
 
 function fixDataTableSize(jWrap, fullHeight) {
@@ -299,15 +352,144 @@ function renderNow(e, jElem) {
       { _: 'div', cls: 'alert alert-error', style: { margin: '0px auto' }, text: msg }
     ]});
     jContent.html('').append(elemMsg);
+    if (error) {
+      throw error;
+    }
   }
 }
 
-function parseData(columns, rows) {
-  return {
-    columns,
-    rows,
-    columnTexts: columns.map(col => 'string' === typeof col ? col : col.text)
-  };
+function parseData(columns, rows, ctrl) {
+  // let result = {
+  //   columns,
+  //   rows,
+  //   columnTexts: columns.map(col => 'string' === typeof col ? col : col.text)
+  // };
+
+  let varsByName = ctrl.getVarsByName();
+  let headers = columns.map(col => col.text);
+  let colDefs = ctrl.panel.columnDefs;
+  let colDefRgxs = colDefs.map(colDef => parseRegExp(colDef.filter));
+  let colDefContentRuleFilters = colDefs.map(
+    colDef => colDef.contentRules.map(
+      rule => rule.type === 'FILTER' ? parseRegExp(rule.filter) : null
+    )
+  );
+
+  columns = _.cloneDeep(columns).map(column => {
+    column = _.extend(
+      'string' === typeof column ? { text: column } : column,
+      { visible: true }
+    );
+    colDefRgxs.find((colDefRgx, colDefIndex) => {
+      if (colDefRgx.test(column.text)) {
+        let colDef = colDefs[colDefIndex];
+        column = _.extend({}, column, {
+          html: colDef.displayIsHTML ? column.text : _.escape(column.text),
+          colDef: colDef,
+          visible: colDef.isVisible,
+          colDefRgx,
+          colDefContentRuleFilters: colDefContentRuleFilters[colDefIndex]
+        });
+        return true;
+      }
+    });
+    return column;
+  });
+
+  rows = rows.map(row => {
+    return row.slice().map((cellValue, colIndex) => {
+      let column = columns[colIndex];
+      let colDef = column.colDef && column.colDef;
+
+      let cell = {
+        html: cellValue,
+        visible: column.visible
+      };
+
+      if (colDef) {
+        let rules = colDef.contentRules;
+        let cellsByColName = row.reduceRight(
+          (carry, val, i) => _.extend(carry, { [headers[i]]: val }),
+          {}
+        );
+
+        // Use Array#find() solely to match the first applicable rule...
+        rules.find((rule, ruleIndex) => {
+          let isMatch = true;
+          let type = rule.type;
+          let colDefContentRuleFilter = column.colDefContentRuleFilters[ruleIndex];
+          let gcvOptions = {
+            cell: cell.html,
+            cellsByColName,
+            rule,
+            colDefContentRuleFilter,
+            ctrl,
+            varsByName
+          };
+          if (type === 'FILTER') {
+            isMatch = colDefContentRuleFilter.test(cell.html);
+          }
+          else if (type === 'RANGE') {
+            let minValue = rule.minValue;
+            let minIsNum = RGX_SIMPLE_NUMBER.test(minValue);
+            let maxValue = rule.maxValue;
+            let maxIsNum = RGX_SIMPLE_NUMBER.test(maxValue);
+            if (minIsNum) {
+              minValue = +minValue;
+            }
+            if (maxIsNum) {
+              maxValue = +maxValue;
+            }
+
+            if (minIsNum || maxIsNum) {
+              cellValue = +cellValue;
+            }
+
+            let minValueOp = rule.minValueOp;
+            if (minValueOp) {
+              isMatch = isMatch && (minValueOp === '<=' ? minValue <= cellValue : (minValue < cellValue));
+            }
+            let maxValueOp = rule.maxValueOp;
+            if (maxValueOp) {
+              isMatch = isMatch && (maxValueOp === '>=' ? maxValue >= cellValue : (maxValue > cellValue));
+            }
+          }
+          else {
+            isMatch = cell.html == null;
+          }
+
+          isMatch = isMatch !== rule.negateCriteria;
+
+          // If this is a match apply the class(es)
+          if (isMatch) {
+            if (rule.classNames) {
+              cell.cls = {
+                names: getCellValue(rule.classNames, false, gcvOptions),
+                level: rule.classLevel
+              };
+            }
+
+            // Set the display
+            let displayHTML = getCellValue(rule.display, false, gcvOptions);
+            if (!rule.displayIsHTML) {
+              displayHTML = _.escape(displayHTML);
+            }
+            if (rule.url) {
+              let url = _.escape(getCellValue(rule.url, true, gcvOptions));
+              displayHTML = `<a href="${url}" target="${rule.openNewWindow ? '_blank' : '_self'}">${displayHTML}</a>`;
+            }
+            cell.html = displayHTML;
+          }
+
+          return isMatch;
+        });
+      }
+
+      return cell;
+    });
+  });
+
+  return { columns, rows, headers };
 }
 
 export class DataTablePanelCtrl extends MetricsPanelCtrl {
@@ -323,6 +505,8 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
     this.events.on('data-received', this.onDataReceived.bind(this));
     this.events.on('data-snapshot-load', this.onDataReceived.bind(this));
     this.events.on('data-error', this.onDataError.bind(this));
+    this.events.on('data-error', this.onDataError.bind(this));
+    this.events.on('init-panel-actions', this.onInitPanelActions.bind(this));
   }
 
   onInitEditMode() {
@@ -330,6 +514,10 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
     this.addEditorTab('Options', `${path}editor.html`, 2);
     this.addEditorTab('Column Definitions', `${path}column-defs.html`, 3);
     this.addEditorTab('Styles', `${path}styles.html`, 4);
+  }
+
+  onInitPanelActions(actions) {
+    actions.push({ text: 'Export CSV', click: 'ctrl.exportCSV()' });
   }
 
   onDataError() {
@@ -340,7 +528,7 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
     if (dataList && dataList.length) {
       let data = dataList[0];
       this.data = _.extend(
-        parseData(data.columns, data.rows),
+        parseData(data.columns, data.rows, this),
         { isReal: true, type: data.type }
       );
     }
@@ -349,7 +537,8 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
       this.data = _.extend(
         parseData(
           [{ text: "X" }, { text: "X * X" }, { text: "X + X" }].concat(_.range(EXTRA_COLS).map(y => ({ text: `${y} / Math.random()`}))),
-          _.range(150).map(x => [x, x * x, x + x].concat(_.range(EXTRA_COLS).map(y => y / Math.random())))
+          _.range(150).map(x => [x, x * x, x + x].concat(_.range(EXTRA_COLS).map(y => y / Math.random()))),
+          this
         ),
         { isReal: false, type: 'table' }
       );
@@ -396,7 +585,8 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
       classLevel: CONTENT_RULE_CLASS_LEVELS[0].id,
       filter: '',
       negateCriteria: false,
-      display: '',
+      display: '${value}',
+      displayIsHTML: false,
       minValue: null,
       maxValue: null,
       minValueOp: null,
@@ -425,6 +615,29 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
           },
           []
         );
+  }
+
+  exportCSV() {
+    JS.dom({
+      _: 'a',
+      href: 'data:text/csv;charset=utf-8,' + encodeURIComponent(
+        toCSV(this.data.rows, { headers: this.data.columnTexts })
+      ),
+      download: this.panel.title + JS.formatDate(new Date, " (YYYY-MM-DD 'at' H:mm:ss).'csv'")
+    }).click();
+  }
+
+  getVarsByName() {
+    return this.templateSrv.variables.reduce(
+      (carry, variable) => {
+        // At times current.value is a string and at times it is an array.
+        let varValues = JS.toArray(variable.current.value);
+        let isAll = variable.includeAll && varValues.length === 1 && varValues[0] === '$__all';
+        carry[variable.name] = isAll ? [variable.current.text] : varValues;
+        return carry;
+      },
+      {}
+    );
   }
 
   renderNow(e, elem) {

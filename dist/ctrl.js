@@ -11,6 +11,8 @@ var _lodash = _interopRequireDefault(require("lodash"));
 
 var JS = _interopRequireWildcard(require("./external/YourJS.min"));
 
+require("./external/toCSV");
+
 require("./external/datatables/js/jquery.dataTables.min");
 
 require("./external/datatables/js/dataTables.fixedHeader.min");
@@ -42,6 +44,16 @@ function _assertThisInitialized(self) { if (self === void 0) { throw new Referen
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function"); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, writable: true, configurable: true } }); if (superClass) _setPrototypeOf(subClass, superClass); }
 
 function _setPrototypeOf(o, p) { _setPrototypeOf = Object.setPrototypeOf || function _setPrototypeOf(o, p) { o.__proto__ = p; return o; }; return _setPrototypeOf(o, p); }
+
+function _toConsumableArray(arr) { return _arrayWithoutHoles(arr) || _iterableToArray(arr) || _nonIterableSpread(); }
+
+function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance"); }
+
+function _iterableToArray(iter) { if (Symbol.iterator in Object(iter) || Object.prototype.toString.call(iter) === "[object Arguments]") return Array.from(iter); }
+
+function _arrayWithoutHoles(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = new Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } }
+
+function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
 
 var RGX_SIMPLE_NUMBER = /^\d+(\.\d+)?$/;
 var DEFAULT_PSEUDO_CSS = "\n.theme-dark & {\n  color: white;\n}\ntable.dataTable tbody tr {\n  &:hover td {\n    background-image: linear-gradient(0deg, rgba(128,128,128,0.1), rgba(128,128,128,0.1));\n  }\n  &, &.even, &.odd {\n    background-color: transparent;\n    >.sorting_1, >.sorting_2, >.sorting_3 {\n      background-color: transparent;\n    }\n    td {\n      border-color: transparent;\n    }\n  }\n  &.odd {\n    background-color: rgba(128,128,128,0.3);\n  }\n  &.even {\n    background-color: rgba(128,128,128,0.15);\n  }\n}\n";
@@ -132,6 +144,7 @@ function pseudoCssToJSON(strLess) {
 function setContent(jElem, ctrl) {
   var data = ctrl.data;
   var panel = ctrl.panel;
+  var varsByName = ctrl.getVarsByName();
   var height = jElem.height();
   var tableOpts = {
     _: 'table',
@@ -149,7 +162,8 @@ function setContent(jElem, ctrl) {
   var colDefRgxs = colDefs.map(function (colDef) {
     return parseRegExp(colDef.filter);
   });
-  var colDefIndexByCol = data.columnTexts.map(function (title) {
+  var columnTexts = data.columnTexts;
+  var colDefIndexByCol = columnTexts.map(function (title) {
     return colDefRgxs.reduce(function (carry, colDefRgx, colDefIndex) {
       return carry < 0 && colDefRgx.test(title) ? colDefIndex : carry;
     }, -1);
@@ -161,7 +175,7 @@ function setContent(jElem, ctrl) {
   });
   var options = {
     data: data.rows,
-    columns: data.columnTexts.map(function (title, colIndex) {
+    columns: columnTexts.map(function (title, colIndex) {
       var result = {
         title: title
       };
@@ -208,6 +222,9 @@ function setContent(jElem, ctrl) {
     order: [],
     rowCallback: function rowCallback(tr, rowData) {
       var tdIndex = -1;
+      var cellsByColName = rowData.reduceRight(function (carry, val, i) {
+        return _lodash.default.extend(carry, _defineProperty({}, columnTexts[i], val));
+      }, {});
       rowData.map(function (cell, colIndex) {
         var colDefIndex = colDefIndexByCol[colIndex];
         var colDef = colDefs[colDefIndex];
@@ -218,13 +235,23 @@ function setContent(jElem, ctrl) {
 
         if (colDef) {
           if (colDef.isVisible) {
-            var rules = colDef.contentRules;
-            rules.forEach(function (rule, ruleIndex) {
+            var rules = colDef.contentRules; // Use Array#find() solely to match the first applicable rule...
+
+            rules.find(function (rule, ruleIndex) {
               var isMatch = true;
               var type = rule.type;
+              var colDefContentRuleFilter = colDefContentRuleFilters[colDefIndex][ruleIndex];
+              var gcvOptions = {
+                cell: cell,
+                cellsByColName: cellsByColName,
+                rule: rule,
+                colDefContentRuleFilter: colDefContentRuleFilter,
+                ctrl: ctrl,
+                varsByName: varsByName
+              };
 
               if (type === 'FILTER') {
-                isMatch = colDefContentRuleFilters[colDefIndex][ruleIndex].test(cell);
+                isMatch = colDefContentRuleFilter.test(cell);
               } else if (type === 'RANGE') {
                 var minValue = rule.minValue;
                 var minIsNum = RGX_SIMPLE_NUMBER.test(minValue);
@@ -261,15 +288,36 @@ function setContent(jElem, ctrl) {
               isMatch = isMatch !== rule.negateCriteria; // If this is a match apply the class(es)
 
               if (isMatch) {
+                var jTD = jQuery('>td', tr).eq(tdIndex);
+
                 if (rule.classNames) {
+                  var classNames = getCellValue(rule.classNames, false, gcvOptions);
+
                   if (rule.classLevel === 'ROW') {
-                    jQuery(tr).addClass(rule.classNames);
+                    jQuery(tr).addClass(classNames);
                   } else {
-                    jQuery('>td', tr).eq(tdIndex).addClass(rule.classNames);
+                    jTD.addClass(classNames);
                   }
+                } // Set the display
+
+
+                var display = getCellValue(rule.display, false, gcvOptions);
+
+                if (rule.displayIsHTML) {
+                  display = _lodash.default.escape(display);
                 }
+
+                if (rule.url) {
+                  var url = _lodash.default.escape(getCellValue(rule.url, true, gcvOptions));
+
+                  display = "<a href=\"".concat(url, "\" target=\"").concat(rule.openNewWindow ? '_blank' : '_self', "\">").concat(display, "</a>");
+                }
+
+                jTD.html(display);
               }
-            });
+
+              return isMatch;
+            }, false);
           }
         }
       });
@@ -282,9 +330,35 @@ function setContent(jElem, ctrl) {
     elem.className = elem.className.replace(/\b_\d+\b/g, ' ').replace(/\s+/g, ' ').trim();
     elem.appendChild(JS.css(JSON.parse(pseudoCssToJSON(panel.pseudoCSS)), elem));
   });
-  console.log({
-    colDefRgxs: colDefRgxs,
-    colDefIndexByCol: colDefIndexByCol
+}
+
+function getCellValue(valToMod, isForLink, _ref) {
+  var display = _ref.display,
+      cellsByColName = _ref.cellsByColName,
+      rule = _ref.rule,
+      colDefContentRuleFilter = _ref.colDefContentRuleFilter,
+      ctrl = _ref.ctrl,
+      varsByName = _ref.varsByName;
+  var matches = rule.type === 'FILTER' ? display != null ? colDefContentRuleFilter.exec(display + '') : {
+    '0': 'null'
+  } : {
+    '0': display
+  };
+
+  _lodash.default.extend(matches, {
+    value: display,
+    cell: display
+  });
+
+  return valToMod.replace(/\${(?:(value|cell|0|[1-9]\d*)|(col|var):((?:[^\}:\\]*|\\.)+))(?::(?:(raw)|(escape)|(param)(?::((?:[^\}:\\]*|\\.)+))?))?}/g, function (match, matchesKey, type, name, isRaw, isEscape, isParam, paramName) {
+    isRaw = isRaw || !(isForLink || isEscape);
+    name = name && name.replace(/\\(.)/g, '$1');
+
+    var result = _toConsumableArray(new Set(matchesKey ? _lodash.default.has(matches, matchesKey) ? [matches[matchesKey]] : [] : type === 'col' ? _lodash.default.has(cellsByColName, name) ? [cellsByColName[name]] : [] : _lodash.default.has(varsByName, name) ? varsByName[name] : []));
+
+    return result.length < 1 ? match : isRaw ? result.join(',') : isParam ? result.map(function (v) {
+      return encodeURIComponent(paramName == undefined ? name : paramName) + '=' + encodeURIComponent(v);
+    }).join('&') : encodeURIComponent(result.join(','));
   });
 }
 
@@ -336,16 +410,153 @@ function renderNow(e, jElem) {
       }]
     });
     jContent.html('').append(elemMsg);
+
+    if (error) {
+      throw error;
+    }
   }
 }
 
-function parseData(columns, rows) {
+function parseData(columns, rows, ctrl) {
+  // let result = {
+  //   columns,
+  //   rows,
+  //   columnTexts: columns.map(col => 'string' === typeof col ? col : col.text)
+  // };
+  var varsByName = ctrl.getVarsByName();
+  var headers = columns.map(function (col) {
+    return col.text;
+  });
+  var colDefs = ctrl.panel.columnDefs;
+  var colDefRgxs = colDefs.map(function (colDef) {
+    return parseRegExp(colDef.filter);
+  });
+  var colDefContentRuleFilters = colDefs.map(function (colDef) {
+    return colDef.contentRules.map(function (rule) {
+      return rule.type === 'FILTER' ? parseRegExp(rule.filter) : null;
+    });
+  });
+  columns = _lodash.default.cloneDeep(columns).map(function (column) {
+    column = _lodash.default.extend('string' === typeof column ? {
+      text: column
+    } : column, {
+      visible: true
+    });
+    colDefRgxs.find(function (colDefRgx, colDefIndex) {
+      if (colDefRgx.test(column.text)) {
+        var colDef = colDefs[colDefIndex];
+        column = _lodash.default.extend({}, column, {
+          html: colDef.displayIsHTML ? column.text : _lodash.default.escape(column.text),
+          colDef: colDef,
+          visible: colDef.isVisible,
+          colDefRgx: colDefRgx,
+          colDefContentRuleFilters: colDefContentRuleFilters[colDefIndex]
+        });
+        return true;
+      }
+    });
+    return column;
+  });
+  rows = rows.map(function (row) {
+    return row.slice().map(function (cellValue, colIndex) {
+      var column = columns[colIndex];
+      var colDef = column.colDef && column.colDef;
+      var cell = {
+        html: cellValue,
+        visible: column.visible
+      };
+
+      if (colDef) {
+        var rules = colDef.contentRules;
+        var cellsByColName = row.reduceRight(function (carry, val, i) {
+          return _lodash.default.extend(carry, _defineProperty({}, headers[i], val));
+        }, {}); // Use Array#find() solely to match the first applicable rule...
+
+        rules.find(function (rule, ruleIndex) {
+          var isMatch = true;
+          var type = rule.type;
+          var colDefContentRuleFilter = column.colDefContentRuleFilters[ruleIndex];
+          var gcvOptions = {
+            cell: cell.html,
+            cellsByColName: cellsByColName,
+            rule: rule,
+            colDefContentRuleFilter: colDefContentRuleFilter,
+            ctrl: ctrl,
+            varsByName: varsByName
+          };
+
+          if (type === 'FILTER') {
+            isMatch = colDefContentRuleFilter.test(cell.html);
+          } else if (type === 'RANGE') {
+            var minValue = rule.minValue;
+            var minIsNum = RGX_SIMPLE_NUMBER.test(minValue);
+            var maxValue = rule.maxValue;
+            var maxIsNum = RGX_SIMPLE_NUMBER.test(maxValue);
+
+            if (minIsNum) {
+              minValue = +minValue;
+            }
+
+            if (maxIsNum) {
+              maxValue = +maxValue;
+            }
+
+            if (minIsNum || maxIsNum) {
+              cellValue = +cellValue;
+            }
+
+            var minValueOp = rule.minValueOp;
+
+            if (minValueOp) {
+              isMatch = isMatch && (minValueOp === '<=' ? minValue <= cellValue : minValue < cellValue);
+            }
+
+            var maxValueOp = rule.maxValueOp;
+
+            if (maxValueOp) {
+              isMatch = isMatch && (maxValueOp === '>=' ? maxValue >= cellValue : maxValue > cellValue);
+            }
+          } else {
+            isMatch = cell.html == null;
+          }
+
+          isMatch = isMatch !== rule.negateCriteria; // If this is a match apply the class(es)
+
+          if (isMatch) {
+            if (rule.classNames) {
+              cell.cls = {
+                names: getCellValue(rule.classNames, false, gcvOptions),
+                level: rule.classLevel
+              };
+            } // Set the display
+
+
+            var displayHTML = getCellValue(rule.display, false, gcvOptions);
+
+            if (!rule.displayIsHTML) {
+              displayHTML = _lodash.default.escape(displayHTML);
+            }
+
+            if (rule.url) {
+              var url = _lodash.default.escape(getCellValue(rule.url, true, gcvOptions));
+
+              displayHTML = "<a href=\"".concat(url, "\" target=\"").concat(rule.openNewWindow ? '_blank' : '_self', "\">").concat(displayHTML, "</a>");
+            }
+
+            cell.html = displayHTML;
+          }
+
+          return isMatch;
+        });
+      }
+
+      return cell;
+    });
+  });
   return {
     columns: columns,
     rows: rows,
-    columnTexts: columns.map(function (col) {
-      return 'string' === typeof col ? col : col.text;
-    })
+    headers: headers
   };
 }
 
@@ -373,6 +584,10 @@ function (_MetricsPanelCtrl) {
 
     _this.events.on('data-error', _this.onDataError.bind(_assertThisInitialized(_this)));
 
+    _this.events.on('data-error', _this.onDataError.bind(_assertThisInitialized(_this)));
+
+    _this.events.on('init-panel-actions', _this.onInitPanelActions.bind(_assertThisInitialized(_this)));
+
     return _this;
   }
 
@@ -385,6 +600,14 @@ function (_MetricsPanelCtrl) {
       this.addEditorTab('Styles', "".concat(path, "styles.html"), 4);
     }
   }, {
+    key: "onInitPanelActions",
+    value: function onInitPanelActions(actions) {
+      actions.push({
+        text: 'Export CSV',
+        click: 'ctrl.exportCSV()'
+      });
+    }
+  }, {
     key: "onDataError",
     value: function onDataError() {
       this.renderNow();
@@ -394,7 +617,7 @@ function (_MetricsPanelCtrl) {
     value: function onDataReceived(dataList) {
       if (dataList && dataList.length) {
         var data = dataList[0];
-        this.data = _lodash.default.extend(parseData(data.columns, data.rows), {
+        this.data = _lodash.default.extend(parseData(data.columns, data.rows, this), {
           isReal: true,
           type: data.type
         });
@@ -414,7 +637,7 @@ function (_MetricsPanelCtrl) {
           return [x, x * x, x + x].concat(_lodash.default.range(EXTRA_COLS).map(function (y) {
             return y / Math.random();
           }));
-        })), {
+        }), this), {
           isReal: false,
           type: 'table'
         });
@@ -469,7 +692,8 @@ function (_MetricsPanelCtrl) {
         classLevel: CONTENT_RULE_CLASS_LEVELS[0].id,
         filter: '',
         negateCriteria: false,
-        display: '',
+        display: '${value}',
+        displayIsHTML: false,
         minValue: null,
         maxValue: null,
         minValueOp: null,
@@ -498,6 +722,28 @@ function (_MetricsPanelCtrl) {
 
         return arr;
       }, []);
+    }
+  }, {
+    key: "exportCSV",
+    value: function exportCSV() {
+      JS.dom({
+        _: 'a',
+        href: 'data:text/csv;charset=utf-8,' + encodeURIComponent(toCSV(this.data.rows, {
+          headers: this.data.columnTexts
+        })),
+        download: this.panel.title + JS.formatDate(new Date(), " (YYYY-MM-DD 'at' H:mm:ss).'csv'")
+      }).click();
+    }
+  }, {
+    key: "getVarsByName",
+    value: function getVarsByName() {
+      return this.templateSrv.variables.reduce(function (carry, variable) {
+        // At times current.value is a string and at times it is an array.
+        var varValues = JS.toArray(variable.current.value);
+        var isAll = variable.includeAll && varValues.length === 1 && varValues[0] === '$__all';
+        carry[variable.name] = isAll ? [variable.current.text] : varValues;
+        return carry;
+      }, {});
     }
   }, {
     key: "renderNow",

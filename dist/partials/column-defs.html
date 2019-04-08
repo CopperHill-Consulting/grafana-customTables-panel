@@ -79,6 +79,15 @@
         <input type="text" class="gf-form-input width-max" ng-model="rule.display" ng-change="ctrl.renderAfterOneSec()" placeholder="eg. Value = $&amp;">
       </div>
       <div class="gf-form">
+        <gf-form-switch
+            class="gf-form"
+            label="Display Is HTML"
+            label-class="width-12"
+            checked="rule.displayIsHTML"
+            on-change="ctrl.renderNow()">
+        </gf-form-switch>
+      </div>
+      <div class="gf-form">
         <label class="gf-form-label width-12">Class Name(s)</label>
         <input type="text" class="gf-form-input width-max" ng-model="rule.classNames" ng-change="ctrl.renderAfterOneSec()" placeholder="eg. my-class">
       </div>
