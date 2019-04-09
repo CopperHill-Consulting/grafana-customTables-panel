@@ -71,10 +71,10 @@ function pseudoCssToJSON(strLess) {
   }
 }
 
-function getCellValue(valToMod, isForLink, { cell, cellsByColName, rule, colDefContentRuleFilter, ctrl, varsByName }) {
-  let matches = rule.type === 'FILTER'
+function getCellValue(valToMod, isForLink, { cell, cellsByColName, ruleType, rgx, ctrl, varsByName }) {
+  let matches = ruleType === 'FILTER'
     ? cell != null
-      ? colDefContentRuleFilter.exec(cell + '')
+      ? rgx.exec(cell + '')
       : { '0': 'null' }
     : { '0': cell };
   _.extend(matches, { value: cell, cell });
@@ -82,7 +82,7 @@ function getCellValue(valToMod, isForLink, { cell, cellsByColName, rule, colDefC
     /\${(?:(value|cell|0|[1-9]\d*)|(col|var):((?:[^\}:\\]*|\\.)+))(?::(?:(raw)|(escape)|(param)(?::((?:[^\}:\\]*|\\.)+))?))?}/g,
     function (match, matchesKey, type, name, isRaw, isEscape, isParam, paramName) {
       isRaw = isRaw || !(isForLink || isEscape);
-      name = name && name.replace(/\\(.)/g, '$1');
+      name = matchesKey || (name && name.replace(/\\(.)/g, '$1'));
       let result = [...new Set(
         matchesKey
           ? _.has(matches, matchesKey) ? [matches[matchesKey]] : []

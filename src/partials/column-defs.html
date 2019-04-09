@@ -5,7 +5,29 @@
   </div>
   <div class="gf-form">
     <label class="gf-form-label width-12">Display</label>
-    <input type="text" class="gf-form-input width-max" ng-model="cd.display" ng-change="ctrl.throttleDraw()" placeholder="eg. Column - $&amp;">
+    <input type="text" class="gf-form-input width-max" ng-model="cd.display" ng-change="ctrl.throttleDraw()" placeholder="eg. Column - ${cell}">
+  </div>
+  <div class="gf-form">
+    <gf-form-switch
+        class="gf-form"
+        label="Display Is HTML"
+        label-class="width-12"
+        checked="cd.displayIsHTML"
+        on-change="ctrl.draw()">
+    </gf-form-switch>
+  </div>
+  <div class="gf-form">
+    <label class="gf-form-label width-12">Link URL</label>
+    <input type="text" class="gf-form-input width-max" ng-model="cd.url" ng-change="ctrl.throttleDraw()" placeholder="eg. https://example.com/">
+  </div>
+  <div class="gf-form" ng-if="cd.url">
+    <gf-form-switch
+        class="gf-form"
+        label="Open In New Window"
+        label-class="width-12"
+        checked="cd.openNewWindow"
+        on-change="ctrl.draw()">
+    </gf-form-switch>
   </div>
   <div class="gf-form">
     <gf-form-switch class="gf-form" label="Is Visible" label-class="width-12" checked="cd.isVisible" on-change="ctrl.draw()"></gf-form-switch>
@@ -76,7 +98,7 @@
       </div>
       <div class="gf-form">
         <label class="gf-form-label width-12">Display</label>
-        <input type="text" class="gf-form-input width-max" ng-model="rule.display" ng-change="ctrl.throttleDraw()" placeholder="eg. Value = $&amp;">
+        <input type="text" class="gf-form-input width-max" ng-model="rule.display" ng-change="ctrl.throttleDraw()" placeholder="eg. Value = ${cell}">
       </div>
       <div class="gf-form">
         <gf-form-switch
@@ -99,7 +121,7 @@
         <label class="gf-form-label width-12">Link URL</label>
         <input type="text" class="gf-form-input width-max" ng-model="rule.url" ng-change="ctrl.throttleDraw()" placeholder="eg. https://example.com/">
       </div>
-      <div class="gf-form">
+      <div class="gf-form" ng-if="rule.url">
         <gf-form-switch
             class="gf-form"
             label="Open In New Window"
@@ -107,6 +129,20 @@
             checked="rule.openNewWindow"
             on-change="ctrl.draw()">
         </gf-form-switch>
+      </div>
+      <div class="gf-form">
+        <gf-form-switch class="gf-form" label="Show Tooltip" label-class="width-12" checked="rule.tooltip.isVisible" on-change="ctrl.draw()">
+        </gf-form-switch>
+      </div>
+      <div ng-if="rule.tooltip.isVisible">
+        <div class="gf-form">
+          <label class="gf-form-label width-12">Tooltip Display</label>
+          <input type="text" class="gf-form-input width-max" ng-model="rule.tooltip.display" ng-change="ctrl.throttleDraw()" placeholder="eg. ${cell}">
+        </div>
+        <div class="gf-form">
+          <label class="gf-form-label width-12">Tooltip Placement</label>
+          <select class="gf-form-input" ng-model="rule.tooltip.placement" ng-options="t.id as t.text for t in ctrl.getConstByName('TOOLTIP_PLACEMENTS')" ng-change="ctrl.draw()"></select>
+        </div>
       </div>
 
       <div class="gf-form-button-row">

@@ -33,6 +33,13 @@ table.dataTable tbody tr {
 }
 `;
 
+const TOOLTIP_PLACEMENTS = [
+  { "id": "TOP", "text": "Top" },
+  { "id": "LEFT", "text": "Left" },
+  { "id": "RIGHT", "text": "Right" },
+  { "id": "BOTTOM", "text": "Bottom" }
+];
+
 const CONTENT_RULE_TYPES = [
   { id: 'FILTER', text: 'Filter by exact value or RegExp' },
   { id: 'RANGE', text: "Match a range of values" },
@@ -137,7 +144,10 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
   addColumnDef() {
     this.panel.columnDefs.push({
       filter: '/[^]*/',
-      display: '',
+      display: '${value}',
+      displayIsHTML: false,
+      url: '',
+      openNewWindow: true,
       width: '',
       classNames: '',
       isVisible: true,
@@ -166,7 +176,12 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
       minValueOp: null,
       maxValueOp: null,
       url: '',
-      openNewWindow: true
+      openNewWindow: true,
+      tooltip: {
+        isVisible: false,
+        display: '',
+        placement: TOOLTIP_PLACEMENTS[0].id
+      }
     });
   }
 
@@ -251,20 +266,18 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
     let dataTableOpts = {
       data: data.rows,
       columns: columns.map((column, colIndex) => {
-        let result = { title: column.text };
+        let result = { title: column.text, visible: column.visible };
 
         let colDef = column.colDef;
-        if (colDef) {
-          if (result.visible = colDef.isVisible) {
-            if (colDef.width) {
-              result.width = colDef.width;
-            }
-            if (colDef.classNames) {
-              result.className = colDef.classNames;
-            }
-            result.orderable = colDef.isOrderable;
-            result.searchable = colDef.isSearchable;
+        if (colDef && column.visible) {
+          if (colDef.width) {
+            result.width = colDef.width;
           }
+          if (colDef.classNames) {
+            result.className = colDef.classNames;
+          }
+          result.orderable = colDef.isOrderable;
+          result.searchable = colDef.isSearchable;
         }
 
         return result;
@@ -284,9 +297,17 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
       ),
       pageLength: panel.initialPageLength,
       order: [],
+      headerCallback(tr) {
+        let thIndex = 0;
+        columns.forEach(col => {
+          if (col.visible) {
+            let jTH = jQuery('>th', tr).eq(thIndex++).html(col.html);
+          }
+        });
+      },
       rowCallback(tr, rowData) {
         let tdIndex = 0;
-        rowData.forEach((cell, colIndex) => {
+        rowData.forEach(cell => {
           if (cell.visible) {
             let jTD = jQuery('>td', tr).eq(tdIndex++);
             if (cell.cls) {
@@ -297,7 +318,11 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
                 jTD.addClass(cell.cls.names);
               }
             }
-            jTD.html(cell.html);
+            let html = cell.html;
+            if (cell.tooltip) {
+              html = `<div data-tooltip data-original-title="${_.escape(cell.tooltip.display)}" data-placement="${cell.tooltip.placement}" class="d-inline-block">${html}</div>`;
+            }
+            jTD.html(html);
           }
         });
       }
@@ -337,13 +362,28 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
       colDefRgxs.find((colDefRgx, colDefIndex) => {
         if (colDefRgx.test(column.text)) {
           let colDef = colDefs[colDefIndex];
-          if (colDef.display) {
-            column.text = column.text.replace(colDefRgx, colDef.display);
+          let gcvOptions = {
+            cell: column.text,
+            cellsByColName: {},
+            ruleType: 'FILTER',
+            rgx: colDefRgx,
+            ctrl,
+            varsByName
+          };
+          column.text = getCellValue(colDef.display, false, gcvOptions);
+
+          let html = colDef.displayIsHTML ? column.text : _.escape(column.text);
+
+          if (colDef.url) {
+            let url = _.escape(getCellValue(colDef.url, true, gcvOptions));
+            let target = colDef.openNewWindow ? '_blank' : '';
+            html = `<a href="${url}" target="${target}" onclick="event.stopPropagation()">${html}</a>`;
           }
+
           _.extend(column, {
             colDef,
             colDefContentRuleFilters: colDefContentRuleFilters[colDefIndex],
-            html: colDef.displayIsHTML ? column.text : _.escape(column.text),
+            html: html,
             visible: colDef.isVisible
           });
 
@@ -383,8 +423,8 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
             let gcvOptions = {
               cell: cell.html,
               cellsByColName,
-              rule,
-              colDefContentRuleFilter,
+              ruleType: rule.type,
+              rgx: colDefContentRuleFilter,
               ctrl,
               varsByName
             };
@@ -438,7 +478,15 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
               }
               if (rule.url) {
                 let url = _.escape(getCellValue(rule.url, true, gcvOptions));
-                displayHTML = `<a href="${url}" target="${rule.openNewWindow ? '_blank' : '_self'}">${displayHTML}</a>`;
+                let target = rule.openNewWindow ? '_blank' : '';
+                let tooltipHTML = '';
+                if (rule.tooltip.isVisible) {
+                  cell.tooltip = {
+                    display: getCellValue(rule.tooltip.display, false, gcvOptions),
+                    placement: rule.tooltip.placement.toLowerCase()
+                  };
+                }
+                displayHTML = `<a href="${url}" target="${target}">${displayHTML}</a>`;
               }
               cell.html = displayHTML;
             }
@@ -482,6 +530,7 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
       if (data.type === 'table') {
         try {
           ctrl.setContent(data);
+          jElem.tooltip({ selector: '[data-tooltip]' });
           isValid = true;
         }
         catch (err) {

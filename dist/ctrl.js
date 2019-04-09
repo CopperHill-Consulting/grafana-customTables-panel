@@ -46,6 +46,19 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 function _setPrototypeOf(o, p) { _setPrototypeOf = Object.setPrototypeOf || function _setPrototypeOf(o, p) { o.__proto__ = p; return o; }; return _setPrototypeOf(o, p); }
 
 var DEFAULT_PSEUDO_CSS = "\n.theme-dark & {\n  color: white;\n}\ntable.dataTable tbody tr {\n  &:hover td {\n    background-image: linear-gradient(0deg, rgba(128,128,128,0.1), rgba(128,128,128,0.1));\n  }\n  &, &.even, &.odd {\n    background-color: transparent;\n    >.sorting_1, >.sorting_2, >.sorting_3 {\n      background-color: transparent;\n    }\n    td {\n      border-color: transparent;\n    }\n  }\n  &.odd {\n    background-color: rgba(128,128,128,0.3);\n  }\n  &.even {\n    background-color: rgba(128,128,128,0.15);\n  }\n}\n";
+var TOOLTIP_PLACEMENTS = [{
+  "id": "TOP",
+  "text": "Top"
+}, {
+  "id": "LEFT",
+  "text": "Left"
+}, {
+  "id": "RIGHT",
+  "text": "Right"
+}, {
+  "id": "BOTTOM",
+  "text": "Bottom"
+}];
 var CONTENT_RULE_TYPES = [{
   id: 'FILTER',
   text: 'Filter by exact value or RegExp'
@@ -205,7 +218,10 @@ function (_MetricsPanelCtrl) {
     value: function addColumnDef() {
       this.panel.columnDefs.push({
         filter: '/[^]*/',
-        display: '',
+        display: '${value}',
+        displayIsHTML: false,
+        url: '',
+        openNewWindow: true,
         width: '',
         classNames: '',
         isVisible: true,
@@ -236,7 +252,12 @@ function (_MetricsPanelCtrl) {
         minValueOp: null,
         maxValueOp: null,
         url: '',
-        openNewWindow: true
+        openNewWindow: true,
+        tooltip: {
+          isVisible: false,
+          display: '',
+          placement: TOOLTIP_PLACEMENTS[0].id
+        }
       });
     }
   }, {
@@ -327,23 +348,22 @@ function (_MetricsPanelCtrl) {
         data: data.rows,
         columns: columns.map(function (column, colIndex) {
           var result = {
-            title: column.text
+            title: column.text,
+            visible: column.visible
           };
           var colDef = column.colDef;
 
-          if (colDef) {
-            if (result.visible = colDef.isVisible) {
-              if (colDef.width) {
-                result.width = colDef.width;
-              }
-
-              if (colDef.classNames) {
-                result.className = colDef.classNames;
-              }
-
-              result.orderable = colDef.isOrderable;
-              result.searchable = colDef.isSearchable;
+          if (colDef && column.visible) {
+            if (colDef.width) {
+              result.width = colDef.width;
             }
+
+            if (colDef.classNames) {
+              result.className = colDef.classNames;
+            }
+
+            result.orderable = colDef.isOrderable;
+            result.searchable = colDef.isSearchable;
           }
 
           return result;
@@ -359,9 +379,17 @@ function (_MetricsPanelCtrl) {
         }, [[], []]),
         pageLength: panel.initialPageLength,
         order: [],
+        headerCallback: function headerCallback(tr) {
+          var thIndex = 0;
+          columns.forEach(function (col) {
+            if (col.visible) {
+              var jTH = jQuery('>th', tr).eq(thIndex++).html(col.html);
+            }
+          });
+        },
         rowCallback: function rowCallback(tr, rowData) {
           var tdIndex = 0;
-          rowData.forEach(function (cell, colIndex) {
+          rowData.forEach(function (cell) {
             if (cell.visible) {
               var jTD = jQuery('>td', tr).eq(tdIndex++);
 
@@ -373,7 +401,13 @@ function (_MetricsPanelCtrl) {
                 }
               }
 
-              jTD.html(cell.html);
+              var html = cell.html;
+
+              if (cell.tooltip) {
+                html = "<div data-tooltip data-original-title=\"".concat(_lodash.default.escape(cell.tooltip.display), "\" data-placement=\"").concat(cell.tooltip.placement, "\" class=\"d-inline-block\">").concat(html, "</div>");
+              }
+
+              jTD.html(html);
             }
           });
         }
@@ -415,15 +449,28 @@ function (_MetricsPanelCtrl) {
         colDefRgxs.find(function (colDefRgx, colDefIndex) {
           if (colDefRgx.test(column.text)) {
             var colDef = colDefs[colDefIndex];
+            var gcvOptions = {
+              cell: column.text,
+              cellsByColName: {},
+              ruleType: 'FILTER',
+              rgx: colDefRgx,
+              ctrl: ctrl,
+              varsByName: varsByName
+            };
+            column.text = getCellValue(colDef.display, false, gcvOptions);
+            var html = colDef.displayIsHTML ? column.text : _lodash.default.escape(column.text);
 
-            if (colDef.display) {
-              column.text = column.text.replace(colDefRgx, colDef.display);
+            if (colDef.url) {
+              var url = _lodash.default.escape(getCellValue(colDef.url, true, gcvOptions));
+
+              var target = colDef.openNewWindow ? '_blank' : '';
+              html = "<a href=\"".concat(url, "\" target=\"").concat(target, "\" onclick=\"event.stopPropagation()\">").concat(html, "</a>");
             }
 
             _lodash.default.extend(column, {
               colDef: colDef,
               colDefContentRuleFilters: colDefContentRuleFilters[colDefIndex],
-              html: colDef.displayIsHTML ? column.text : _lodash.default.escape(column.text),
+              html: html,
               visible: colDef.isVisible
             });
 
@@ -459,8 +506,8 @@ function (_MetricsPanelCtrl) {
               var gcvOptions = {
                 cell: cell.html,
                 cellsByColName: cellsByColName,
-                rule: rule,
-                colDefContentRuleFilter: colDefContentRuleFilter,
+                ruleType: rule.type,
+                rgx: colDefContentRuleFilter,
                 ctrl: ctrl,
                 varsByName: varsByName
               };
@@ -520,7 +567,17 @@ function (_MetricsPanelCtrl) {
                 if (rule.url) {
                   var url = _lodash.default.escape(getCellValue(rule.url, true, gcvOptions));
 
-                  displayHTML = "<a href=\"".concat(url, "\" target=\"").concat(rule.openNewWindow ? '_blank' : '_self', "\">").concat(displayHTML, "</a>");
+                  var target = rule.openNewWindow ? '_blank' : '';
+                  var tooltipHTML = '';
+
+                  if (rule.tooltip.isVisible) {
+                    cell.tooltip = {
+                      display: getCellValue(rule.tooltip.display, false, gcvOptions),
+                      placement: rule.tooltip.placement.toLowerCase()
+                    };
+                  }
+
+                  displayHTML = "<a href=\"".concat(url, "\" target=\"").concat(target, "\">").concat(displayHTML, "</a>");
                 }
 
                 cell.html = displayHTML;
@@ -572,6 +629,9 @@ function (_MetricsPanelCtrl) {
         if (data.type === 'table') {
           try {
             ctrl.setContent(data);
+            jElem.tooltip({
+              selector: '[data-tooltip]'
+            });
             isValid = true;
           } catch (err) {
             error = err;
