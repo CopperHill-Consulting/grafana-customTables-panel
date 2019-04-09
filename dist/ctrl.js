@@ -141,7 +141,9 @@ function (_MetricsPanelCtrl) {
 
     _this.events.on('init-panel-actions', _this.onInitPanelActions.bind(_assertThisInitialized(_this)));
 
-    _this.events.on('panel-size-changed', _this.onPanelSizeChanged.bind(_assertThisInitialized(_this)));
+    _this.events.on('render', _this.onPanelSizeChanged.bind(_assertThisInitialized(_this)));
+
+    _this.events.on('view-mode-changed', _this.draw.bind(_assertThisInitialized(_this)));
 
     return _this;
   }
@@ -170,9 +172,11 @@ function (_MetricsPanelCtrl) {
     key: "onInitEditMode",
     value: function onInitEditMode() {
       var path = 'public/plugins/copperhill-datatables-panel/partials/';
+      this.addEditorTab('Table View', "".concat(path, "refresh-view.html"), 1);
       this.addEditorTab('Options', "".concat(path, "editor.html"), 2);
       this.addEditorTab('Column Definitions', "".concat(path, "column-defs.html"), 3);
       this.addEditorTab('Styles', "".concat(path, "styles.html"), 4);
+      this.addEditorTab('Table View', "".concat(path, "refresh-view.html"), 5);
     }
   }, {
     key: "onInitPanelActions",

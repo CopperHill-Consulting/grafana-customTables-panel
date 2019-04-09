@@ -48,8 +48,7 @@
           class="gf-form"
           label="Allow Length Change"
           label-class="width-12"
-          checked="ctrl.panel.allowLengthChange"
-          on-change="ctrl.drawIfChanged()">
+          checked="ctrl.panel.allowLengthChange">
       </gf-form-switch>
     </div>
   </div>
@@ -59,15 +58,13 @@
       <input type="text"
           class="gf-form-input width-max"
           ng-model="ctrl.panel.pageLengths"
-          ng-blur="ctrl.drawIfChanged()"
           placeholder="eg. 10,25,50,100,-1" />
     </div>
     <div class="gf-form">
       <label class="gf-form-label width-12">Initial Page Length</label>
       <select class="gf-form-input"
           ng-model="ctrl.panel.initialPageLength"
-          ng-options="opt.value as opt.text for opt in ctrl.pageLengthOptions"
-          ng-blur="ctrl.drawIfChanged()">
+          ng-options="opt.value as opt.text for opt in ctrl.pageLengthOptions">
       </select>
     </div>
   </div>

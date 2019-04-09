@@ -93,7 +93,8 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
     this.events.on('data-error', this.onDataError.bind(this));
     this.events.on('data-error', this.onDataError.bind(this));
     this.events.on('init-panel-actions', this.onInitPanelActions.bind(this));
-    this.events.on('panel-size-changed', this.onPanelSizeChanged.bind(this));
+    this.events.on('render', this.onPanelSizeChanged.bind(this));
+    this.events.on('view-mode-changed', this.draw.bind(this));
   }
 
   drawIfChanged() {
@@ -121,9 +122,11 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
 
   onInitEditMode() {
     let path = 'public/plugins/copperhill-datatables-panel/partials/';
+    this.addEditorTab('Table View', `${path}refresh-view.html`, 1);
     this.addEditorTab('Options', `${path}editor.html`, 2);
     this.addEditorTab('Column Definitions', `${path}column-defs.html`, 3);
     this.addEditorTab('Styles', `${path}styles.html`, 4);
+    this.addEditorTab('Table View', `${path}refresh-view.html`, 5);
   }
 
   onInitPanelActions(actions) {
