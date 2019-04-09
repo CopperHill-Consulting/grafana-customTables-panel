@@ -69,14 +69,14 @@ const CONTENT_RULE_EXACT_NUM_OPS = [
 ];
 
 const DEFAULT_PANEL_SETTINGS = {
-  pseudoCSS: DEFAULT_PSEUDO_CSS,
-  columnDefs: [],
-  isFullWidth: true,
+  allowLengthChange: true,
   allowOrdering: true,
   allowSearching: true,
-  allowLengthChange: true,
+  columnDefs: [],
+  initialPageLength: 25,
+  isFullWidth: true,
   pageLengths: '10,15,20,25,50,100',
-  initialPageLength: 25
+  pseudoCSS: DEFAULT_PSEUDO_CSS
 };
 
 export class DataTablePanelCtrl extends MetricsPanelCtrl {
@@ -94,6 +94,25 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
     this.events.on('data-error', this.onDataError.bind(this));
     this.events.on('init-panel-actions', this.onInitPanelActions.bind(this));
     this.events.on('panel-size-changed', this.onPanelSizeChanged.bind(this));
+  }
+
+  drawIfChanged() {
+    if (this.panelJSON !== this.getPanelSettingsJSON()) {
+      this.draw();
+    }
+  }
+
+  getPanelSettingsJSON(spacing) {
+    let panel = this.panel;
+    return JSON.stringify(
+      panel,
+      function (key, value) {
+        return (this != panel || _.has(DEFAULT_PANEL_SETTINGS, key))
+          ? value
+          : undefined;
+      },
+      spacing
+    );
   }
 
   onPanelSizeChanged() {
@@ -530,6 +549,7 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
       if (data.type === 'table') {
         try {
           ctrl.setContent(data);
+          ctrl.panelJSON = this.getPanelSettingsJSON();
           jElem.tooltip({ selector: '[data-tooltip]' });
           isValid = true;
         }

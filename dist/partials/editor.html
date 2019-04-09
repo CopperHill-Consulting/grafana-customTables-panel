@@ -13,7 +13,7 @@
           <input id="chkIsFullWidth"
               type="checkbox"
               ng-model="ctrl.panel.isFullWidth"
-              ng-change="ctrl.draw()"
+              ng-blur="ctrl.drawIfChanged()"
               class="ng-pristine ng-untouched ng-valid ng-empty" />
           <span class="gf-form-switch__slider"></span>
         </div>
@@ -27,7 +27,7 @@
           label="Allow Ordering"
           label-class="width-12"
           checked="ctrl.panel.allowOrdering"
-          on-change="ctrl.draw()">
+          on-change="ctrl.drawIfChanged()">
       </gf-form-switch>
     </div>
   </div>
@@ -38,7 +38,7 @@
           label="Allow Searching"
           label-class="width-12"
           checked="ctrl.panel.allowSearching"
-          on-change="ctrl.draw()">
+          on-change="ctrl.drawIfChanged()">
       </gf-form-switch>
     </div>
   </div>
@@ -49,7 +49,7 @@
           label="Allow Length Change"
           label-class="width-12"
           checked="ctrl.panel.allowLengthChange"
-          on-change="ctrl.draw()">
+          on-change="ctrl.drawIfChanged()">
       </gf-form-switch>
     </div>
   </div>
@@ -59,7 +59,7 @@
       <input type="text"
           class="gf-form-input width-max"
           ng-model="ctrl.panel.pageLengths"
-          ng-change="ctrl.throttleDraw()"
+          ng-blur="ctrl.drawIfChanged()"
           placeholder="eg. 10,25,50,100,-1" />
     </div>
     <div class="gf-form">
@@ -67,7 +67,7 @@
       <select class="gf-form-input"
           ng-model="ctrl.panel.initialPageLength"
           ng-options="opt.value as opt.text for opt in ctrl.pageLengthOptions"
-          ng-change="ctrl.throttleDraw()">
+          ng-blur="ctrl.drawIfChanged()">
       </select>
     </div>
   </div>

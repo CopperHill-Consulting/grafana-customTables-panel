@@ -104,14 +104,14 @@ var CONTENT_RULE_EXACT_NUM_OPS = [{
   text: "\u2260 (doesn't)"
 }];
 var DEFAULT_PANEL_SETTINGS = {
-  pseudoCSS: DEFAULT_PSEUDO_CSS,
-  columnDefs: [],
-  isFullWidth: true,
+  allowLengthChange: true,
   allowOrdering: true,
   allowSearching: true,
-  allowLengthChange: true,
+  columnDefs: [],
+  initialPageLength: 25,
+  isFullWidth: true,
   pageLengths: '10,15,20,25,50,100',
-  initialPageLength: 25
+  pseudoCSS: DEFAULT_PSEUDO_CSS
 };
 
 var DataTablePanelCtrl =
@@ -147,6 +147,21 @@ function (_MetricsPanelCtrl) {
   }
 
   _createClass(DataTablePanelCtrl, [{
+    key: "drawIfChanged",
+    value: function drawIfChanged() {
+      if (this.panelJSON !== this.getPanelSettingsJSON()) {
+        this.draw();
+      }
+    }
+  }, {
+    key: "getPanelSettingsJSON",
+    value: function getPanelSettingsJSON(spacing) {
+      var panel = this.panel;
+      return JSON.stringify(panel, function (key, value) {
+        return this != panel || _lodash.default.has(DEFAULT_PANEL_SETTINGS, key) ? value : undefined;
+      }, spacing);
+    }
+  }, {
     key: "onPanelSizeChanged",
     value: function onPanelSizeChanged() {
       this.fixDataTableSize();
@@ -629,6 +644,7 @@ function (_MetricsPanelCtrl) {
         if (data.type === 'table') {
           try {
             ctrl.setContent(data);
+            ctrl.panelJSON = this.getPanelSettingsJSON();
             jElem.tooltip({
               selector: '[data-tooltip]'
             });
