@@ -11,14 +11,14 @@
     },
     "keywords": ["panel"],
     "logos": {
-      "small": "img/groupedBarChart_logo_small.png",
-      "large": "img/groupedBarChart_logo_large.png"
+      "small": "img/chcCustomTable-logo-128.png",
+      "large": "img/chcCustomTable-logo-512.png"
     },
     "links": [
       {"name": "Project site", "url": "https://github.com/CopperHill-Consulting/grafana-customTables-panel.git"}
     ],
     "version": "0.0.1",
-    "updated": "2019-04-07"
+    "updated": "2019-04-08"
   },
 
   "dependencies": {
