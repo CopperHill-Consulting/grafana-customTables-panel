@@ -332,19 +332,17 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
         rowData.forEach(cell => {
           if (cell.visible) {
             let jTD = jQuery('>td', tr).eq(tdIndex++);
-            if (cell.cls) {
-              if (cell.cls.level === 'ROW') {
-                jQuery(tr).addClass(cell.cls.names);
-              }
-              else {
-                jTD.addClass(cell.cls.names);
-              }
+            if (cell.cls && cell.cls.level === 'CELL') {
+              jTD.addClass(cell.cls.names);
             }
             let html = cell.html;
             if (cell.tooltip) {
               html = `<div data-tooltip data-original-title="${_.escape(cell.tooltip.display)}" data-placement="${cell.tooltip.placement}" class="d-inline-block">${html}</div>`;
             }
             jTD.html(html);
+          }
+          else if (cell.cls && cell.cls.level === 'ROW') {
+            jQuery(tr).addClass(cell.cls.names);
           }
         });
       }

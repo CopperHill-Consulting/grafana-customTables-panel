@@ -412,12 +412,8 @@ function (_MetricsPanelCtrl) {
             if (cell.visible) {
               var jTD = jQuery('>td', tr).eq(tdIndex++);
 
-              if (cell.cls) {
-                if (cell.cls.level === 'ROW') {
-                  jQuery(tr).addClass(cell.cls.names);
-                } else {
-                  jTD.addClass(cell.cls.names);
-                }
+              if (cell.cls && cell.cls.level === 'CELL') {
+                jTD.addClass(cell.cls.names);
               }
 
               var html = cell.html;
@@ -427,6 +423,8 @@ function (_MetricsPanelCtrl) {
               }
 
               jTD.html(html);
+            } else if (cell.cls && cell.cls.level === 'ROW') {
+              jQuery(tr).addClass(cell.cls.names);
             }
           });
         }
