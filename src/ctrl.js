@@ -341,7 +341,7 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
             }
             jTD.html(html);
           }
-          else if (cell.cls && cell.cls.level === 'ROW') {
+          if (cell.cls && cell.cls.level === 'ROW') {
             jQuery(tr).addClass(cell.cls.names);
           }
         });
