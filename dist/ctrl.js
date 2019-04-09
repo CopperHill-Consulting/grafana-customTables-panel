@@ -111,7 +111,14 @@ var DEFAULT_PANEL_SETTINGS = {
   initialPageLength: 25,
   isFullWidth: true,
   pageLengths: '10,15,20,25,50,100',
-  pseudoCSS: DEFAULT_PSEUDO_CSS
+  pseudoCSS: DEFAULT_PSEUDO_CSS,
+  varCols: {
+    dataRefId: null,
+    mainJoinColumn: null,
+    joinColumn: null,
+    nameColumn: null,
+    valueColumn: null
+  }
 };
 
 var DataTablePanelCtrl =
@@ -134,8 +141,6 @@ function (_MetricsPanelCtrl) {
     _this.events.on('data-received', _this.onDataReceived.bind(_assertThisInitialized(_this)));
 
     _this.events.on('data-snapshot-load', _this.onDataReceived.bind(_assertThisInitialized(_this)));
-
-    _this.events.on('data-error', _this.onDataError.bind(_assertThisInitialized(_this)));
 
     _this.events.on('data-error', _this.onDataError.bind(_assertThisInitialized(_this)));
 
@@ -173,10 +178,11 @@ function (_MetricsPanelCtrl) {
     value: function onInitEditMode() {
       var path = 'public/plugins/copperhill-datatables-panel/partials/';
       this.addEditorTab('Table View', "".concat(path, "refresh-view.html"), 1);
-      this.addEditorTab('Options', "".concat(path, "editor.html"), 2);
-      this.addEditorTab('Column Definitions', "".concat(path, "column-defs.html"), 3);
-      this.addEditorTab('Styles', "".concat(path, "styles.html"), 4);
-      this.addEditorTab('Table View', "".concat(path, "refresh-view.html"), 5);
+      this.addEditorTab('Variable Columns', "".concat(path, "var-cols.html"), 2);
+      this.addEditorTab('Editor', "".concat(path, "editor.html"), 3);
+      this.addEditorTab('Column Definitions', "".concat(path, "column-defs.html"), 4);
+      this.addEditorTab('Styles', "".concat(path, "styles.html"), 5);
+      this.addEditorTab('Table View', "".concat(path, "refresh-view.html"), 6);
     }
   }, {
     key: "onInitPanelActions",
@@ -198,7 +204,9 @@ function (_MetricsPanelCtrl) {
         dataList.forEach(function (data) {
           return data.isReal = true;
         });
-        this.dataList = dataList;
+        this.dataList = dataList; // Add the variable columns to the data if there are any.
+
+        this.putVarColsInData();
       } else {
         var EXTRA_COLS = 2;
         this.dataList = [{
@@ -350,9 +358,7 @@ function (_MetricsPanelCtrl) {
       var jElem = ctrl.panelElement;
       var height = jElem.height();
       var tableOpts = {
-        _: 'table',
-        cls: 'display',
-        style: {}
+        _: 'table'
       };
 
       if (panel.isFullWidth) {
@@ -423,7 +429,9 @@ function (_MetricsPanelCtrl) {
               }
 
               jTD.html(html);
-            } else if (cell.cls && cell.cls.level === 'ROW') {
+            }
+
+            if (cell.cls && cell.cls.level === 'ROW') {
               jQuery(tr).addClass(cell.cls.names);
             }
           });
@@ -438,17 +446,117 @@ function (_MetricsPanelCtrl) {
       });
     }
   }, {
+    key: "getVarColColumns",
+    value: function getVarColColumns() {
+      var data = this.getVarColsData();
+      return data ? data.columns : [];
+    }
+  }, {
+    key: "getVarColsData",
+    value: function getVarColsData() {
+      var varCols = this.panel.varCols;
+      var dataRefId = varCols && varCols.dataRefId;
+      var dataList = this.dataList;
+      return dataList && dataList.find(function (_ref) {
+        var refId = _ref.refId;
+        return refId === dataRefId;
+      });
+    }
+  }, {
+    key: "putVarColsInData",
+    value: function putVarColsInData() {
+      var varCols = this.panel.varCols;
+      var dataList = this.dataList;
+      var data = dataList[0];
+      var columns = data.columns;
+      var rows = data.rows.slice();
+      var MAIN_COL_COUNT = columns.length;
+      var MAIN_ROW_COUNT = rows.length;
+
+      if (varCols) {
+        var vcData = this.getVarColsData();
+
+        if (vcData) {
+          var vcHeaders = vcData.columns.map(function (col) {
+            return col.text;
+          });
+          var mainJoinColIndex = columns.findIndex(function (c) {
+            return c.text === varCols.mainJoinColumn;
+          });
+          var joinColIndex = vcHeaders.indexOf(varCols.joinColumn);
+          var nameColIndex = vcHeaders.indexOf(varCols.nameColumn);
+          var valueColIndex = vcHeaders.indexOf(varCols.valueColumn);
+
+          if (mainJoinColIndex >= 0 && joinColIndex >= 0 && nameColIndex >= 0 && valueColIndex >= 0) {
+            var mainRowIndex = 0; // Order a sliced version of the main `rows` using the join column.
+
+            rows.sort(function (a, b) {
+              return a[mainJoinColIndex] < b[mainJoinColIndex] ? -1 : 1;
+            }); // Order a sliced version of the varCols rows using the join column.
+
+            var vcRows = vcData.rows.slice().sort(function (a, b) {
+              return a[joinColIndex] < b[joinColIndex] ? -1 : 1;
+            });
+            vcRows // Get a list of all of the new headers while simultaneously adding
+            // the data to the appropriate rows and in the appropriate columns.
+            .reduce(function (vcHeaders, vcRow) {
+              var vcHeader = vcRow[nameColIndex];
+              var vcJoinValue = vcRow[joinColIndex];
+              var colIndex = vcHeaders.indexOf(vcHeader);
+              var isNewVCHeader = colIndex < 0; // If the new column wasn't found add it.
+
+              if (isNewVCHeader) {
+                colIndex = vcHeaders.push(vcHeader) - 1;
+              } // Since everything is ordered continue in `rows` looking for the
+              // join and if found add the value there while setting the new row's
+              // index as `mainRowIndex`.
+
+
+              for (var mainRow, i = mainRowIndex; i < MAIN_ROW_COUNT; i++) {
+                mainRow = rows[i];
+
+                if (vcJoinValue === mainRow[mainJoinColIndex]) {
+                  mainRow[MAIN_COL_COUNT + colIndex] = vcRow[valueColIndex];
+                  mainRowIndex = i; // NOTE:  Return here to avoid checking `i` outside of loop.
+
+                  return vcHeaders;
+                }
+              } // If new header was added but join was unsuccessful remove the new
+              // header.
+
+
+              if (isNewVCHeader) {
+                vcHeaders.pop();
+              }
+
+              return vcHeaders;
+            }, []) // Add the new `columns`.
+            .forEach(function (vcHeader) {
+              return columns.push({
+                text: vcHeader
+              });
+            }); // Make sure all rows have the right number of columns.
+
+            var colCount = columns.length;
+            rows.forEach(function (row) {
+              return row.push.apply(row, Array(colCount - row.length).fill(null));
+            });
+          }
+        }
+      }
+    }
+  }, {
     key: "parseDataList",
     value: function parseDataList() {
       var ctrl = this;
-      var data = ctrl.dataList[0];
+      var dataList = ctrl.dataList;
+      var data = dataList[0];
       var columns = data.columns;
       var rows = data.rows;
       var varsByName = ctrl.getVarsByName();
-      var headers = columns.map(function (col) {
-        return col.text;
-      });
-      var colDefs = ctrl.panel.columnDefs;
+      var panel = ctrl.panel;
+      var colDefs = panel.columnDefs;
+      var varCols = panel.varCols;
       var colDefRgxs = colDefs.map(function (colDef) {
         return parseRegExp(colDef.filter);
       });
@@ -456,6 +564,15 @@ function (_MetricsPanelCtrl) {
         return colDef.contentRules.map(function (rule) {
           return rule.type === 'FILTER' ? parseRegExp(rule.filter) : null;
         });
+      }); // Make an array of column headers.
+
+      var headers = columns.map(function (col) {
+        return col.text;
+      });
+      console.log({
+        columns: columns,
+        rows: rows,
+        headers: headers
       });
       columns = _lodash.default.cloneDeep(columns).map(function (column) {
         column = _lodash.default.extend('string' === typeof column ? {

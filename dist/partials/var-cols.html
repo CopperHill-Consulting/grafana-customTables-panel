@@ -1,0 +1,37 @@
+<div class="edit-tab-content">
+  <div class="gf-form">
+    <label class="gf-form-label width-auto">Main Join Column</label>
+    <select class="gf-form-input"
+        ng-model="ctrl.panel.varCols.mainJoinColumn"
+        ng-options="col.text as col.text for col in ctrl.dataList[0].columns">
+    </select>
+  </div>
+  <div class="gf-form">
+    <label class="gf-form-label width-auto">Query</label>
+    <select class="gf-form-input"
+        ng-model="ctrl.panel.varCols.dataRefId"
+        ng-options="dl.refId as dl.refId for dl in ctrl.dataList">
+    </select>
+  </div>
+  <div class="gf-form">
+    <label class="gf-form-label width-auto">Join Column</label>
+    <select class="gf-form-input"
+        ng-model="ctrl.panel.varCols.joinColumn"
+        ng-options="col.text as col.text for col in ctrl.getVarColColumns()">
+    </select>
+  </div>
+  <div class="gf-form">
+    <label class="gf-form-label width-auto">Name Column</label>
+    <select class="gf-form-input"
+        ng-model="ctrl.panel.varCols.nameColumn"
+        ng-options="col.text as col.text for col in ctrl.getVarColColumns()">
+    </select>
+  </div>
+  <div class="gf-form">
+    <label class="gf-form-label width-auto">Value Column</label>
+    <select class="gf-form-input"
+        ng-model="ctrl.panel.varCols.valueColumn"
+        ng-options="col.text as col.text for col in ctrl.getVarColColumns()">
+    </select>
+  </div>
+</div>

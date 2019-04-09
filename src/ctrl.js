@@ -76,7 +76,14 @@ const DEFAULT_PANEL_SETTINGS = {
   initialPageLength: 25,
   isFullWidth: true,
   pageLengths: '10,15,20,25,50,100',
-  pseudoCSS: DEFAULT_PSEUDO_CSS
+  pseudoCSS: DEFAULT_PSEUDO_CSS,
+  varCols: {
+    dataRefId: null,
+    mainJoinColumn: null,
+    joinColumn: null,
+    nameColumn: null,
+    valueColumn: null
+  }
 };
 
 export class DataTablePanelCtrl extends MetricsPanelCtrl {
@@ -90,7 +97,6 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
     this.events.on('init-edit-mode', this.onInitEditMode.bind(this));
     this.events.on('data-received', this.onDataReceived.bind(this));
     this.events.on('data-snapshot-load', this.onDataReceived.bind(this));
-    this.events.on('data-error', this.onDataError.bind(this));
     this.events.on('data-error', this.onDataError.bind(this));
     this.events.on('init-panel-actions', this.onInitPanelActions.bind(this));
     this.events.on('render', this.onPanelSizeChanged.bind(this));
@@ -123,10 +129,11 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
   onInitEditMode() {
     let path = 'public/plugins/copperhill-datatables-panel/partials/';
     this.addEditorTab('Table View', `${path}refresh-view.html`, 1);
-    this.addEditorTab('Options', `${path}editor.html`, 2);
-    this.addEditorTab('Column Definitions', `${path}column-defs.html`, 3);
-    this.addEditorTab('Styles', `${path}styles.html`, 4);
-    this.addEditorTab('Table View', `${path}refresh-view.html`, 5);
+    this.addEditorTab('Variable Columns', `${path}var-cols.html`, 2);
+    this.addEditorTab('Editor', `${path}editor.html`, 3);
+    this.addEditorTab('Column Definitions', `${path}column-defs.html`, 4);
+    this.addEditorTab('Styles', `${path}styles.html`, 5);
+    this.addEditorTab('Table View', `${path}refresh-view.html`, 6);
   }
 
   onInitPanelActions(actions) {
@@ -141,6 +148,9 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
     if (dataList && dataList.length) {
       dataList.forEach(data => data.isReal = true);
       this.dataList = dataList;
+
+      // Add the variable columns to the data if there are any.
+      this.putVarColsInData();
     }
     else {
       let EXTRA_COLS = 2;
@@ -276,7 +286,7 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
     let panel = ctrl.panel;
     let jElem = ctrl.panelElement;
     let height = jElem.height();
-    let tableOpts = { _: 'table', cls: 'display', style: {} };
+    let tableOpts = { _: 'table' };
     if (panel.isFullWidth) {
       tableOpts.style.width = '100%';
     }
@@ -358,20 +368,111 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
     });
   }
 
+  getVarColColumns() {
+    let data = this.getVarColsData();
+    return data ? data.columns : [];
+  }
+
+  getVarColsData() {
+    let varCols = this.panel.varCols;
+    let dataRefId = varCols && varCols.dataRefId;
+    let dataList = this.dataList;
+    return dataList && dataList.find(({ refId }) => refId === dataRefId);
+  }
+
+  putVarColsInData() {
+    let varCols = this.panel.varCols;
+    let dataList = this.dataList;
+    let data = dataList[0];
+    let columns = data.columns;
+    let rows = data.rows.slice();
+
+    const MAIN_COL_COUNT = columns.length;
+    const MAIN_ROW_COUNT = rows.length;
+
+    if (varCols) {
+      let vcData = this.getVarColsData();
+      if (vcData) {
+        let vcHeaders = vcData.columns.map(col => col.text);
+        let mainJoinColIndex = columns.findIndex(c => c.text === varCols.mainJoinColumn);
+        let joinColIndex = vcHeaders.indexOf(varCols.joinColumn);
+        let nameColIndex = vcHeaders.indexOf(varCols.nameColumn);
+        let valueColIndex = vcHeaders.indexOf(varCols.valueColumn);
+        if (mainJoinColIndex >= 0 && joinColIndex >= 0 && nameColIndex >= 0 && valueColIndex >= 0) {
+          let mainRowIndex = 0;
+          
+          // Order a sliced version of the main `rows` using the join column.
+          rows.sort((a, b) => a[mainJoinColIndex] < b[mainJoinColIndex] ? -1 : 1);
+
+          // Order a sliced version of the varCols rows using the join column.
+          let vcRows = vcData.rows.slice().sort((a, b) => a[joinColIndex] < b[joinColIndex] ? -1 : 1);
+
+          vcRows
+            // Get a list of all of the new headers while simultaneously adding
+            // the data to the appropriate rows and in the appropriate columns.
+            .reduce((vcHeaders, vcRow) => {
+              let vcHeader = vcRow[nameColIndex];
+              let vcJoinValue = vcRow[joinColIndex];
+              let colIndex = vcHeaders.indexOf(vcHeader);
+              let isNewVCHeader = colIndex < 0;
+
+              // If the new column wasn't found add it.
+              if (isNewVCHeader) {
+                colIndex = vcHeaders.push(vcHeader) - 1;
+              }
+
+              // Since everything is ordered continue in `rows` looking for the
+              // join and if found add the value there while setting the new row's
+              // index as `mainRowIndex`.
+              for (let mainRow, i = mainRowIndex; i < MAIN_ROW_COUNT; i++) {
+                mainRow = rows[i];
+                if (vcJoinValue === mainRow[mainJoinColIndex]) {
+                  mainRow[MAIN_COL_COUNT + colIndex] = vcRow[valueColIndex];
+                  mainRowIndex = i;
+
+                  // NOTE:  Return here to avoid checking `i` outside of loop.
+                  return vcHeaders;
+                }
+              }
+
+              // If new header was added but join was unsuccessful remove the new
+              // header.
+              if (isNewVCHeader) {
+                vcHeaders.pop();
+              }
+
+              return vcHeaders;
+            }, [])
+            // Add the new `columns`.
+            .forEach(vcHeader => columns.push({ text: vcHeader }));
+
+          // Make sure all rows have the right number of columns.
+          let colCount = columns.length;
+          rows.forEach(row => row.push.apply(row, Array(colCount - row.length).fill(null)));
+        }
+      }
+    }
+  }
+
   parseDataList() {
     let ctrl = this;
-    let data = ctrl.dataList[0];
+    let dataList = ctrl.dataList;
+    let data = dataList[0];
     let columns = data.columns;
     let rows = data.rows;
     let varsByName = ctrl.getVarsByName();
-    let headers = columns.map(col => col.text);
-    let colDefs = ctrl.panel.columnDefs;
+    let panel = ctrl.panel;
+    let colDefs = panel.columnDefs;
+    let varCols = panel.varCols;
     let colDefRgxs = colDefs.map(colDef => parseRegExp(colDef.filter));
     let colDefContentRuleFilters = colDefs.map(
       colDef => colDef.contentRules.map(
         rule => rule.type === 'FILTER' ? parseRegExp(rule.filter) : null
       )
     );
+
+    // Make an array of column headers.
+    let headers = columns.map(col => col.text);
 
     columns = _.cloneDeep(columns).map(column => {
       column = _.extend(
