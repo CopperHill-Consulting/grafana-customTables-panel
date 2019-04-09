@@ -1,14 +1,11 @@
 import {MetricsPanelCtrl} from 'app/plugins/sdk';
 import _ from 'lodash';
 import * as JS from './external/YourJS.min';
-import './external/toCSV';
+import './external/helper-functions';
 import './external/datatables/js/jquery.dataTables.min';
 import './external/datatables/js/dataTables.fixedHeader.min';
 import './external/datatables/css/jquery.dataTables.min.css!';
 import './external/datatables/css/fixedHeader.dataTables.min.css!';
-import './external/datatables-grafana-fix.css!';
-
-const RGX_SIMPLE_NUMBER = /^\d+(\.\d+)?$/;
 
 const DEFAULT_PSEUDO_CSS = `
 .theme-dark & {
@@ -75,429 +72,11 @@ const DEFAULT_PANEL_SETTINGS = {
   initialPageLength: 25
 };
 
-function parseRegExp(strPattern) {
-  let parts = /^\/(.+)\/(\w*)$/.exec(strPattern);
-  return parts ? new RegExp(parts[1], parts[2]) : new RegExp('^' + _.escapeRegExp(strPattern) + '$', 'i');
-}
-
-function pseudoCssToJSON(strLess) {
-  var openCount = 0;
-  var closeCount = 0;
-
-  strLess = strLess
-    .replace(/\/\*[^]*?\*\//g, '')
-    .replace(
-      /([^\{\};]+)\{|([^:\{\}]+):([^;]+);|\}/g,
-      function (match, ruleName, styleName, styleValue) {
-        if (ruleName) {
-          openCount++;
-          return JSON.stringify(ruleName.trim()) + ":{";
-        }
-        if (styleName) {
-          return JSON.stringify(styleName.trim()) + ":" + JSON.stringify(styleValue.trim()) + ",";
-        }
-        closeCount++;
-        return "},";
-      }
-    )
-    .replace(/,\s*(\}|$)/g, '$1');
-
-  try {
-    return JSON.stringify(JSON.parse("{" + strLess + "}"), null, 2);
-  }
-  catch (e) {
-    throw new Error(
-      openCount !== closeCount
-        ? "Pseudo-CSS contains too many " + (openCount > closeCount ? "open" : "clos") + "ing braces."
-        : "Pseudo-CSS couldn't be parsed correctly."
-    );
-  }
-}
-
-function setContent(jElem, ctrl) {
-  let data = ctrl.data;
-  let panel = ctrl.panel;
-  let varsByName = ctrl.getVarsByName();
-  let height = jElem.height();
-
-  let tableOpts = { _: 'table', cls: 'display', style: {} };
-  if (panel.isFullWidth) {
-    tableOpts.style.width = '100%';
-  }
-
-  let table = JS.dom(tableOpts);
-  let jTable = jQuery(table).appendTo(jElem.html(''));
-  let colDefs = panel.columnDefs;
-  let colDefRgxs = colDefs.map(colDef => parseRegExp(colDef.filter));
-  let columnTexts = data.columnTexts;
-  let colDefIndexByCol = columnTexts.map(
-    title => colDefRgxs.reduce(
-      (carry, colDefRgx, colDefIndex) => (carry < 0 && colDefRgx.test(title)) ? colDefIndex : carry,
-      -1
-    )
-  );
-  let colDefContentRuleFilters = colDefs.map(
-    colDef => colDef.contentRules.map(
-      rule => rule.type === 'FILTER' ? parseRegExp(rule.filter) : null
-    )
-  );
-  let options = {
-    data: data.rows,
-    columns: columnTexts.map((title, colIndex) => {
-      let result = { title };
-
-      let colDefIndex = colDefIndexByCol[colIndex];
-      let colDef = colDefs[colDefIndex];
-      if (colDef) {
-        let filter = colDefRgxs[colDefIndex];
-        if (filter.test(title)) {
-          if (colDef.display) {
-            result.title = title.replace(filter, colDef.display);
-          }
-          if (colDef.isVisible) {
-            if (colDef.width) {
-              result.width = colDef.width;
-            }
-            if (colDef.classNames) {
-              result.className = colDef.classNames;
-            }
-            result.orderable = colDef.isOrderable;
-            result.searchable = colDef.isSearchable;
-          }
-          else {
-            result.visible = colDef.isVisible;
-          }
-        }
-      }
-
-      return result;
-    }),
-    scrollY: height,
-    scrollX: true,
-    scrollCollapse: true,
-    ordering: panel.allowOrdering,
-    searching: panel.allowSearching,
-    lengthChange: panel.allowLengthChange,
-    lengthMenu: ctrl.getPageLengthOptions().reduce(
-      (arr, opt) => [
-        arr[0].concat([opt.value === Infinity ? -1 : opt.value]),
-        arr[1].concat([opt.value === Infinity ? 'All' : opt.value])
-      ],
-      [[],[]]
-    ),
-    pageLength: panel.initialPageLength,
-    order: [],
-    rowCallback: function(tr, rowData) {
-      let tdIndex = -1;
-      let cellsByColName = rowData.reduceRight(
-        (carry, val, i) => _.extend(carry, { [columnTexts[i]]: val }),
-        {}
-      );
-      rowData.map((cell, colIndex) => {
-        let colDefIndex = colDefIndexByCol[colIndex];
-        let colDef = colDefs[colDefIndex];
-
-        if (!colDef || colDef.isVisible) {
-          tdIndex++;
-        }
-
-        if (colDef) {
-          if (colDef.isVisible) {
-            let rules = colDef.contentRules;
-            // Use Array#find() solely to match the first applicable rule...
-            rules.find((rule, ruleIndex) => {
-              let isMatch = true;
-              let type = rule.type;
-              let colDefContentRuleFilter = colDefContentRuleFilters[colDefIndex][ruleIndex];
-              let gcvOptions = { cell, cellsByColName, rule, colDefContentRuleFilter, ctrl, varsByName };
-              if (type === 'FILTER') {
-                isMatch = colDefContentRuleFilter.test(cell);
-              }
-              else if (type === 'RANGE') {
-                let minValue = rule.minValue;
-                let minIsNum = RGX_SIMPLE_NUMBER.test(minValue);
-                let maxValue = rule.maxValue;
-                let maxIsNum = RGX_SIMPLE_NUMBER.test(maxValue);
-                if (minIsNum) {
-                  minValue = +minValue;
-                }
-                if (maxIsNum) {
-                  maxValue = +maxValue;
-                }
-
-                if (minIsNum || maxIsNum) {
-                  cell = +cell;
-                }
-
-                let minValueOp = rule.minValueOp;
-                if (minValueOp) {
-                  isMatch = isMatch && (minValueOp === '<=' ? minValue <= cell : (minValue < cell));
-                }
-                let maxValueOp = rule.maxValueOp;
-                if (maxValueOp) {
-                  isMatch = isMatch && (maxValueOp === '>=' ? maxValue >= cell : (maxValue > cell));
-                }
-              }
-              else {
-                isMatch = cell == null;
-              }
-
-              isMatch = isMatch !== rule.negateCriteria;
-
-              // If this is a match apply the class(es)
-              if (isMatch) {
-                let jTD = jQuery('>td', tr).eq(tdIndex);
-                if (rule.classNames) {
-                  let classNames = getCellValue(rule.classNames, false, gcvOptions);
-                  if (rule.classLevel === 'ROW') {
-                    jQuery(tr).addClass(classNames);
-                  }
-                  else {
-                    jTD.addClass(classNames);
-                  }
-                }
-
-                // Set the display
-                let display = getCellValue(rule.display, false, gcvOptions);
-                if (rule.displayIsHTML) {
-                  display = _.escape(display);
-                }
-                if (rule.url) {
-                  let url = _.escape(getCellValue(rule.url, true, gcvOptions));
-                  display = `<a href="${url}" target="${rule.openNewWindow ? '_blank' : '_self'}">${display}</a>`;
-                }
-                jTD.html(display);
-              }
-
-              return isMatch;
-            }, false);
-          }
-        }
-      });
-    }
-  };
-  let dataTable = jTable.DataTable(options);
-
-  jElem.find('.dataTables_scrollHeadInner').css('margin', '0 auto');
-  fixDataTableSize(jElem.find('.dataTables_wrapper'), height);
-
-  jElem.each((i, elem) => {
-    elem.className = elem.className.replace(/\b_\d+\b/g, ' ').replace(/\s+/g, ' ').trim();
-    elem.appendChild(JS.css(JSON.parse(pseudoCssToJSON(panel.pseudoCSS)), elem));
-  });
-}
-
-function getCellValue(valToMod, isForLink, { display, cellsByColName, rule, colDefContentRuleFilter, ctrl, varsByName }) {
-  let matches = rule.type === 'FILTER'
-    ? display != null
-      ? colDefContentRuleFilter.exec(display + '')
-      : { '0': 'null' }
-    : { '0': display };
-  _.extend(matches, { value: display, cell: display });
-  return valToMod.replace(
-    /\${(?:(value|cell|0|[1-9]\d*)|(col|var):((?:[^\}:\\]*|\\.)+))(?::(?:(raw)|(escape)|(param)(?::((?:[^\}:\\]*|\\.)+))?))?}/g,
-    function (match, matchesKey, type, name, isRaw, isEscape, isParam, paramName) {
-      isRaw = isRaw || !(isForLink || isEscape);
-      name = name && name.replace(/\\(.)/g, '$1');
-      let result = [...new Set(
-        matchesKey
-          ? _.has(matches, matchesKey) ? [matches[matchesKey]] : []
-          : type === 'col'
-            ? _.has(cellsByColName, name) ? [cellsByColName[name]] : []
-            : _.has(varsByName, name) ? varsByName[name] : []
-      )];
-      return result.length < 1
-        ? match
-        : isRaw
-          ? result.join(',')
-          : isParam
-            ? result.map(v => encodeURIComponent(paramName == undefined ? name : paramName) + '=' + encodeURIComponent(v)).join('&')
-            : encodeURIComponent(result.join(','));
-    }
-  )
-}
-
-function fixDataTableSize(jWrap, fullHeight) {
-  let wrapHeight = jWrap.height();
-  let jScrollBody = jWrap.find('.dataTables_scrollBody');
-  let scrollHeight = jScrollBody.height();
-  let nonScrollHeight = wrapHeight - scrollHeight;
-  jScrollBody.css('max-height', fullHeight - nonScrollHeight);
-}
-
-function renderNow(e, jElem) {
-  let error,
-      isValid = false,
-      ctrl = this,
-      data = ctrl.data,
-      jContent = jElem.find('.panel-content').css('position', 'relative').html(''),
-      elemContent = jContent[0];
-
-  ctrl.pageLengthOptions = ctrl.getPageLengthOptions();
-  
-  if (data && data.rows.length) {
-    if (data.type === 'table') {
-      try {
-        setContent(jContent, ctrl);
-        isValid = true;
-      }
-      catch (err) {
-        error = err;
-      }
-    }
-  }
-  if (!isValid) {
-    let msg = 'No data' + (error ? ':  \r\n' + error.message : '.');
-    let elemMsg = JS.dom({ _: 'div', style: { display: 'flex', alignItems: 'center', textAlign: 'center', height: '100%' }, $: [
-      { _: 'div', cls: 'alert alert-error', style: { margin: '0px auto' }, text: msg }
-    ]});
-    jContent.html('').append(elemMsg);
-    if (error) {
-      throw error;
-    }
-  }
-}
-
-function parseData(columns, rows, ctrl) {
-  // let result = {
-  //   columns,
-  //   rows,
-  //   columnTexts: columns.map(col => 'string' === typeof col ? col : col.text)
-  // };
-
-  let varsByName = ctrl.getVarsByName();
-  let headers = columns.map(col => col.text);
-  let colDefs = ctrl.panel.columnDefs;
-  let colDefRgxs = colDefs.map(colDef => parseRegExp(colDef.filter));
-  let colDefContentRuleFilters = colDefs.map(
-    colDef => colDef.contentRules.map(
-      rule => rule.type === 'FILTER' ? parseRegExp(rule.filter) : null
-    )
-  );
-
-  columns = _.cloneDeep(columns).map(column => {
-    column = _.extend(
-      'string' === typeof column ? { text: column } : column,
-      { visible: true }
-    );
-    colDefRgxs.find((colDefRgx, colDefIndex) => {
-      if (colDefRgx.test(column.text)) {
-        let colDef = colDefs[colDefIndex];
-        column = _.extend({}, column, {
-          html: colDef.displayIsHTML ? column.text : _.escape(column.text),
-          colDef: colDef,
-          visible: colDef.isVisible,
-          colDefRgx,
-          colDefContentRuleFilters: colDefContentRuleFilters[colDefIndex]
-        });
-        return true;
-      }
-    });
-    return column;
-  });
-
-  rows = rows.map(row => {
-    return row.slice().map((cellValue, colIndex) => {
-      let column = columns[colIndex];
-      let colDef = column.colDef && column.colDef;
-
-      let cell = {
-        html: cellValue,
-        visible: column.visible
-      };
-
-      if (colDef) {
-        let rules = colDef.contentRules;
-        let cellsByColName = row.reduceRight(
-          (carry, val, i) => _.extend(carry, { [headers[i]]: val }),
-          {}
-        );
-
-        // Use Array#find() solely to match the first applicable rule...
-        rules.find((rule, ruleIndex) => {
-          let isMatch = true;
-          let type = rule.type;
-          let colDefContentRuleFilter = column.colDefContentRuleFilters[ruleIndex];
-          let gcvOptions = {
-            cell: cell.html,
-            cellsByColName,
-            rule,
-            colDefContentRuleFilter,
-            ctrl,
-            varsByName
-          };
-          if (type === 'FILTER') {
-            isMatch = colDefContentRuleFilter.test(cell.html);
-          }
-          else if (type === 'RANGE') {
-            let minValue = rule.minValue;
-            let minIsNum = RGX_SIMPLE_NUMBER.test(minValue);
-            let maxValue = rule.maxValue;
-            let maxIsNum = RGX_SIMPLE_NUMBER.test(maxValue);
-            if (minIsNum) {
-              minValue = +minValue;
-            }
-            if (maxIsNum) {
-              maxValue = +maxValue;
-            }
-
-            if (minIsNum || maxIsNum) {
-              cellValue = +cellValue;
-            }
-
-            let minValueOp = rule.minValueOp;
-            if (minValueOp) {
-              isMatch = isMatch && (minValueOp === '<=' ? minValue <= cellValue : (minValue < cellValue));
-            }
-            let maxValueOp = rule.maxValueOp;
-            if (maxValueOp) {
-              isMatch = isMatch && (maxValueOp === '>=' ? maxValue >= cellValue : (maxValue > cellValue));
-            }
-          }
-          else {
-            isMatch = cell.html == null;
-          }
-
-          isMatch = isMatch !== rule.negateCriteria;
-
-          // If this is a match apply the class(es)
-          if (isMatch) {
-            if (rule.classNames) {
-              cell.cls = {
-                names: getCellValue(rule.classNames, false, gcvOptions),
-                level: rule.classLevel
-              };
-            }
-
-            // Set the display
-            let displayHTML = getCellValue(rule.display, false, gcvOptions);
-            if (!rule.displayIsHTML) {
-              displayHTML = _.escape(displayHTML);
-            }
-            if (rule.url) {
-              let url = _.escape(getCellValue(rule.url, true, gcvOptions));
-              displayHTML = `<a href="${url}" target="${rule.openNewWindow ? '_blank' : '_self'}">${displayHTML}</a>`;
-            }
-            cell.html = displayHTML;
-          }
-
-          return isMatch;
-        });
-      }
-
-      return cell;
-    });
-  });
-
-  return { columns, rows, headers };
-}
-
 export class DataTablePanelCtrl extends MetricsPanelCtrl {
   constructor($scope, $injector, $rootScope) {
     super($scope, $injector);
 
     this.$rootScope = $rootScope;
-    this.data = null;
 
     _.defaultsDeep(this.panel, DEFAULT_PANEL_SETTINGS);
 
@@ -507,6 +86,11 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
     this.events.on('data-error', this.onDataError.bind(this));
     this.events.on('data-error', this.onDataError.bind(this));
     this.events.on('init-panel-actions', this.onInitPanelActions.bind(this));
+    this.events.on('panel-size-changed', this.onPanelSizeChanged.bind(this));
+  }
+
+  onPanelSizeChanged() {
+    this.fixDataTableSize();
   }
 
   onInitEditMode() {
@@ -521,37 +105,27 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
   }
 
   onDataError() {
-    this.renderNow();
+    this.draw();
   }
 
   onDataReceived(dataList) {
     if (dataList && dataList.length) {
-      let data = dataList[0];
-      this.data = _.extend(
-        parseData(data.columns, data.rows, this),
-        { isReal: true, type: data.type }
-      );
+      dataList.forEach(data => data.isReal = true);
+      this.dataList = dataList;
     }
     else {
       let EXTRA_COLS = 2;
-      this.data = _.extend(
-        parseData(
-          [{ text: "X" }, { text: "X * X" }, { text: "X + X" }].concat(_.range(EXTRA_COLS).map(y => ({ text: `${y} / Math.random()`}))),
-          _.range(150).map(x => [x, x * x, x + x].concat(_.range(EXTRA_COLS).map(y => y / Math.random()))),
-          this
-        ),
-        { isReal: false, type: 'table' }
-      );
+      this.dataList = [
+        {
+          columns: [{ text: "X" }, { text: "X * X" }, { text: "X + X" }].concat(_.range(EXTRA_COLS).map(y => ({ text: `${y} / Math.random()` }))),
+          rows: _.range(150).map(x => [x, x * x, x + x].concat(_.range(EXTRA_COLS).map(y => y / Math.random()))),
+          isReal: false,
+          type: 'table'
+        }
+      ];
     }
 
-    this.renderNow();
-  }
-
-  onChangeCallback(obj, key) {
-    return newValue => {
-      obj[key] = newValue;
-      this.renderNow();
-    };
+    this.draw();
   }
 
   getConstByName(name) {
@@ -618,12 +192,32 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
   }
 
   exportCSV() {
+    let div = JS.dom({ _: 'div' });
+    let data = this.parseDataList(0);
+
     JS.dom({
       _: 'a',
       href: 'data:text/csv;charset=utf-8,' + encodeURIComponent(
-        toCSV(this.data.rows, { headers: this.data.columnTexts })
+        toCSV(
+          data.rows.map(row => row.reduce((carry, cell) => {
+            if (cell.visible) {
+              div.innerHTML = cell.html;
+              carry.push(div.textContent);
+            }
+            return carry;
+          }, [])),
+          {
+            headers: data.columns.reduce((carry, header) => {
+              if (header.visible) {
+                div.innerHTML = header.html;
+                carry.push(div.textContent);
+              }
+              return carry;
+            }, [])
+          }
+        )
       ),
-      download: this.panel.title + JS.formatDate(new Date, " (YYYY-MM-DD 'at' H:mm:ss).'csv'")
+      download: this.panel.title + JS.formatDate(new Date, " (YYYY-MM-DD 'at' H.mm.ss).'csv'")
     }).click();
   }
 
@@ -640,18 +234,279 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
     );
   }
 
-  renderNow(e, elem) {
-    this.events.emit('renderNow');
+  setContent(data) {
+    let ctrl = this;
+    let panel = ctrl.panel;
+    let jElem = ctrl.panelElement;
+    let height = jElem.height();
+    let tableOpts = { _: 'table', cls: 'display', style: {} };
+    if (panel.isFullWidth) {
+      tableOpts.style.width = '100%';
+    }
+
+    let table = JS.dom(tableOpts);
+    let jTable = jQuery(table).appendTo(jElem.html(''));
+    let columns = data.columns;
+    let headers = data.headers;
+    let dataTableOpts = {
+      data: data.rows,
+      columns: columns.map((column, colIndex) => {
+        let result = { title: column.text };
+
+        let colDef = column.colDef;
+        if (colDef) {
+          if (result.visible = colDef.isVisible) {
+            if (colDef.width) {
+              result.width = colDef.width;
+            }
+            if (colDef.classNames) {
+              result.className = colDef.classNames;
+            }
+            result.orderable = colDef.isOrderable;
+            result.searchable = colDef.isSearchable;
+          }
+        }
+
+        return result;
+      }),
+      scrollY: height,
+      scrollX: true,
+      scrollCollapse: true,
+      ordering: panel.allowOrdering,
+      searching: panel.allowSearching,
+      lengthChange: panel.allowLengthChange,
+      lengthMenu: ctrl.getPageLengthOptions().reduce(
+        (arr, opt) => [
+          arr[0].concat([opt.value === Infinity ? -1 : opt.value]),
+          arr[1].concat([opt.value === Infinity ? 'All' : opt.value])
+        ],
+        [[], []]
+      ),
+      pageLength: panel.initialPageLength,
+      order: [],
+      rowCallback(tr, rowData) {
+        let tdIndex = 0;
+        rowData.forEach((cell, colIndex) => {
+          if (cell.visible) {
+            let jTD = jQuery('>td', tr).eq(tdIndex++);
+            if (cell.cls) {
+              if (cell.cls.level === 'ROW') {
+                jQuery(tr).addClass(cell.cls.names);
+              }
+              else {
+                jTD.addClass(cell.cls.names);
+              }
+            }
+            jTD.html(cell.html);
+          }
+        });
+      }
+    };
+    let dataTable = jTable.DataTable(dataTableOpts);
+
+    jElem.find('.dataTables_scrollHeadInner').css('margin', '0 auto');
+    ctrl.fixDataTableSize();
+
+    jElem.each((i, elem) => {
+      elem.className = elem.className.replace(/\b_\d+\b/g, ' ').replace(/\s+/g, ' ').trim();
+      elem.appendChild(JS.css(JSON.parse(pseudoCssToJSON(panel.pseudoCSS)), elem));
+    });
   }
 
-  renderAfterOneSec() {
-    this.events.emit('renderAfterOneSec');
+  parseDataList() {
+    let ctrl = this;
+    let data = ctrl.dataList[0];
+    let columns = data.columns;
+    let rows = data.rows;
+    let varsByName = ctrl.getVarsByName();
+    let headers = columns.map(col => col.text);
+    let colDefs = ctrl.panel.columnDefs;
+    let colDefRgxs = colDefs.map(colDef => parseRegExp(colDef.filter));
+    let colDefContentRuleFilters = colDefs.map(
+      colDef => colDef.contentRules.map(
+        rule => rule.type === 'FILTER' ? parseRegExp(rule.filter) : null
+      )
+    );
+
+    columns = _.cloneDeep(columns).map(column => {
+      column = _.extend(
+        'string' === typeof column ? { text: column } : column,
+        { visible: true }
+      );
+
+      colDefRgxs.find((colDefRgx, colDefIndex) => {
+        if (colDefRgx.test(column.text)) {
+          let colDef = colDefs[colDefIndex];
+          if (colDef.display) {
+            column.text = column.text.replace(colDefRgx, colDef.display);
+          }
+          _.extend(column, {
+            colDef,
+            colDefContentRuleFilters: colDefContentRuleFilters[colDefIndex],
+            html: colDef.displayIsHTML ? column.text : _.escape(column.text),
+            visible: colDef.isVisible
+          });
+
+          return true;
+        }
+      });
+
+      if (!_.has(column, 'html')) {
+        column.html = _.escape(column.text);
+      }
+
+      return column;
+    });
+
+    rows = rows.map(row => {
+      return row.slice().map((cellValue, colIndex) => {
+        let column = columns[colIndex];
+        let colDef = column.colDef;
+
+        let cell = {
+          html: cellValue,
+          visible: column.visible
+        };
+
+        if (colDef) {
+          let rules = colDef.contentRules;
+          let cellsByColName = row.reduceRight(
+            (carry, val, i) => _.extend(carry, { [headers[i]]: val }),
+            {}
+          );
+
+          // Use Array#find() solely to match the first applicable rule...
+          rules.find((rule, ruleIndex) => {
+            let isMatch = true;
+            let type = rule.type;
+            let colDefContentRuleFilter = column.colDefContentRuleFilters[ruleIndex];
+            let gcvOptions = {
+              cell: cell.html,
+              cellsByColName,
+              rule,
+              colDefContentRuleFilter,
+              ctrl,
+              varsByName
+            };
+            if (type === 'FILTER') {
+              isMatch = colDefContentRuleFilter.test(cell.html);
+            }
+            else if (type === 'RANGE') {
+              let minValue = rule.minValue;
+              let minIsNum = RGX_SIMPLE_NUMBER.test(minValue);
+              let maxValue = rule.maxValue;
+              let maxIsNum = RGX_SIMPLE_NUMBER.test(maxValue);
+              if (minIsNum) {
+                minValue = +minValue;
+              }
+              if (maxIsNum) {
+                maxValue = +maxValue;
+              }
+
+              if (minIsNum || maxIsNum) {
+                cellValue = +cellValue;
+              }
+
+              let minValueOp = rule.minValueOp;
+              if (minValueOp) {
+                isMatch = isMatch && (minValueOp === '<=' ? minValue <= cellValue : (minValue < cellValue));
+              }
+              let maxValueOp = rule.maxValueOp;
+              if (maxValueOp) {
+                isMatch = isMatch && (maxValueOp === '>=' ? maxValue >= cellValue : (maxValue > cellValue));
+              }
+            }
+            else {
+              isMatch = cell.html == null;
+            }
+
+            isMatch = isMatch !== rule.negateCriteria;
+
+            // If this is a match apply the class(es)
+            if (isMatch) {
+              if (rule.classNames) {
+                cell.cls = {
+                  names: getCellValue(rule.classNames, false, gcvOptions),
+                  level: rule.classLevel
+                };
+              }
+
+              // Set the display
+              let displayHTML = getCellValue(rule.display, false, gcvOptions);
+              if (!rule.displayIsHTML) {
+                displayHTML = _.escape(displayHTML);
+              }
+              if (rule.url) {
+                let url = _.escape(getCellValue(rule.url, true, gcvOptions));
+                displayHTML = `<a href="${url}" target="${rule.openNewWindow ? '_blank' : '_self'}">${displayHTML}</a>`;
+              }
+              cell.html = displayHTML;
+            }
+
+            return isMatch;
+          });
+        }
+
+        return cell;
+      });
+    });
+
+    return { columns, rows, headers, type: data.type, refId: data.refId };
+  }
+
+  fixDataTableSize() {
+    let jElem = this.panelElement;
+    let fullHeight = jElem.height();
+    let jWrap = jElem.find('.dataTables_wrapper');
+    if (jWrap.length) {
+      let wrapHeight = jWrap.height();
+      let jScrollBody = jWrap.find('.dataTables_scrollBody');
+      let scrollHeight = jScrollBody.height();
+      let nonScrollHeight = wrapHeight - scrollHeight;
+      jScrollBody.css('max-height', fullHeight - nonScrollHeight);
+    }
+  }
+
+  draw() {
+    let error;
+    let isValid = false;
+    let ctrl = this;
+    let jElem = ctrl.element;
+    let jContent = ctrl.panelElement.css('position', 'relative').html('');
+    let elemContent = jContent[0];
+    let data = ctrl.parseDataList();
+
+    ctrl.pageLengthOptions = ctrl.getPageLengthOptions();
+
+    if (data && data.rows.length) {
+      if (data.type === 'table') {
+        try {
+          ctrl.setContent(data);
+          isValid = true;
+        }
+        catch (err) {
+          error = err;
+        }
+      }
+    }
+    if (!isValid) {
+      let msg = 'No data' + (error ? ':  \r\n' + error.message : '.');
+      let elemMsg = JS.dom({
+        _: 'div', style: { display: 'flex', alignItems: 'center', textAlign: 'center', height: '100%' }, $: [
+          { _: 'div', cls: 'alert alert-error', style: { margin: '0px auto' }, text: msg }
+        ]
+      });
+      jContent.html('').append(elemMsg);
+      if (error) {
+        throw error;
+      }
+    }
   }
 
   link(scope, elem, attrs, ctrl) {
-    this.events.on('renderNow', e => renderNow.call(this, e, elem));
-    this.events.on('render', _.debounce(e => renderNow.call(this, e, elem), 250));
-    this.events.on('renderAfterOneSec', _.debounce(e => renderNow.call(this, e, elem), 1000));
+    this.element = elem;
+    this.panelElement = elem.find('.panel-content');
+    this.throttleDraw = _.debounce(this.draw.bind(this), 1000);
   }
 }
 
