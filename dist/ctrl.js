@@ -204,9 +204,8 @@ function (_MetricsPanelCtrl) {
         dataList.forEach(function (data) {
           return data.isReal = true;
         });
-        this.dataList = dataList; // Add the variable columns to the data if there are any.
-
-        this.putVarColsInData();
+        this.dataList = dataList;
+        this.updateDataListOptions();
       } else {
         var EXTRA_COLS = 2;
         this.dataList = [{
@@ -294,6 +293,16 @@ function (_MetricsPanelCtrl) {
       contentRules.splice(contentRules.indexOf(contentRule), 1);
     }
   }, {
+    key: "updateDataListOptions",
+    value: function updateDataListOptions() {
+      this.dataListOptions = [{}].concat(this.dataList).map(function (x, i) {
+        return {
+          id: i ? x.refId : null,
+          text: i ? x.refId : '--- NONE ---'
+        };
+      });
+    }
+  }, {
     key: "getPageLengthOptions",
     value: function getPageLengthOptions() {
       return this.panel.pageLengths.replace(/\s+/g, '').split(',').reduce(function (arr, x) {
@@ -311,7 +320,7 @@ function (_MetricsPanelCtrl) {
   }, {
     key: "exportCSV",
     value: function exportCSV() {
-      var data = this.parseDataList();
+      var data = this.getData();
       JS.dom({
         _: 'a',
         href: 'data:text/csv;charset=utf-8,' + encodeURIComponent((0, _helperFunctions.toCSV)(data.rows.map(function (row) {
@@ -405,12 +414,6 @@ function (_MetricsPanelCtrl) {
         rowCallback: function rowCallback(tr, rowData, pageDisplayIndex, displayIndex, rowIndex) {
           var tdIndex = 0;
           var row = rows[rowIndex];
-          console.log({
-            rowData: rowData,
-            rowIndex: rowIndex,
-            arguments: arguments,
-            row: row
-          });
           rowData.forEach(function (cellText, colIndex) {
             var cell = rows[rowIndex][colIndex];
 
@@ -483,11 +486,9 @@ function (_MetricsPanelCtrl) {
       });
     }
   }, {
-    key: "putVarColsInData",
-    value: function putVarColsInData() {
+    key: "putVarColsIn",
+    value: function putVarColsIn(data) {
       var varCols = this.panel.varCols;
-      var dataList = this.dataList;
-      var data = dataList[0];
       var columns = data.columns;
       var rows = data.rows.slice();
       var MAIN_COL_COUNT = columns.length;
@@ -514,9 +515,13 @@ function (_MetricsPanelCtrl) {
               return a[mainJoinColIndex] < b[mainJoinColIndex] ? -1 : 1;
             }); // Order a sliced version of the varCols rows using the join column.
 
-            var vcRows = vcData.rows.slice().sort(function (a, b) {
+            var vcRowsPrime = vcData.rows;
+            var vcRows = vcRowsPrime.slice().sort(function (a, b) {
               return a[joinColIndex] < b[joinColIndex] ? -1 : 1;
-            });
+            }); // Used later to reorder the new columns by the order they were found
+            // in the data.
+
+            var vcColIndexPairs = [];
             vcRows // Get a list of all of the new headers while simultaneously adding
             // the data to the appropriate rows and in the appropriate columns.
             .reduce(function (vcHeaders, vcRow) {
@@ -551,28 +556,48 @@ function (_MetricsPanelCtrl) {
 
               return vcHeaders;
             }, []) // Add the new `columns`.
-            .forEach(function (vcHeader) {
-              return columns.push({
+            .forEach(function (vcHeader, vcHeaderIndex) {
+              vcColIndexPairs.push({
+                first: vcRowsPrime.findIndex(function (vcRow) {
+                  return vcRow[nameColIndex] === vcHeader;
+                }),
+                index: vcHeaderIndex + MAIN_COL_COUNT
+              });
+              columns.push({
                 text: vcHeader
               });
-            }); // Make sure all rows have the right number of columns.
+            }); // Used to reorder all of the var-cols
 
-            var colCount = columns.length;
+            vcColIndexPairs.sort(function (a, b) {
+              return a.first - b.first;
+            });
+            var SPLICE_ARGS = [MAIN_COL_COUNT, vcColIndexPairs.length]; // Reorder all of the var-cols
+
+            columns.splice.apply(columns, SPLICE_ARGS.concat(vcColIndexPairs.map(function (pair) {
+              return columns[pair.index];
+            }))); // Reorder all of the var-col cells in each row.
+
             rows.forEach(function (row) {
-              return row.push.apply(row, Array(colCount - row.length).fill(null));
+              row.splice.apply(row, SPLICE_ARGS.concat(vcColIndexPairs.map(function (pair) {
+                pair = row[pair.index];
+                return pair === undefined ? null : pair;
+              })));
             });
           }
         }
       }
     }
   }, {
-    key: "parseDataList",
-    value: function parseDataList() {
+    key: "getData",
+    value: function getData() {
       var ctrl = this;
-      var dataList = ctrl.dataList;
-      var data = dataList[0];
-      var columns = data.columns;
-      var rows = data.rows;
+      var dataList = ctrl.dataList[0];
+      var columns = dataList.columns.map(function (col) {
+        return _lodash.default.cloneDeep(col);
+      });
+      var rows = dataList.rows.map(function (row) {
+        return row.slice();
+      });
       var varsByName = ctrl.getVarsByName();
       var panel = ctrl.panel;
       var colDefs = panel.columnDefs;
@@ -584,12 +609,21 @@ function (_MetricsPanelCtrl) {
         return colDef.contentRules.map(function (rule) {
           return rule.type === 'FILTER' ? (0, _helperFunctions.parseRegExp)(rule.filter) : null;
         });
-      }); // Make an array of column headers.
+      }); // Create the data object to be returned.
 
-      var headers = columns.map(function (col) {
+      var data = {
+        columns: columns,
+        rows: rows,
+        type: dataList.type,
+        refId: dataList.refId
+      }; // Add the variable columns to the data if there are any.
+
+      this.putVarColsIn(data); // Make an array of column headers.
+
+      var headers = data.headers = columns.map(function (col) {
         return col.text;
       });
-      columns = _lodash.default.cloneDeep(columns).map(function (column) {
+      columns.forEach(function (column, colIndex) {
         column = _lodash.default.extend('string' === typeof column ? {
           text: column
         } : column, {
@@ -631,10 +665,10 @@ function (_MetricsPanelCtrl) {
           column.html = _lodash.default.escape(column.text);
         }
 
-        return column;
+        columns[colIndex] = column;
       });
-      rows = rows.map(function (row) {
-        return row.slice().map(function (cellValue, colIndex) {
+      rows.forEach(function (row) {
+        row.forEach(function (cellValue, colIndex) {
           var ruleApplied;
           var column = columns[colIndex];
           var colDef = column.colDef;
@@ -742,16 +776,10 @@ function (_MetricsPanelCtrl) {
             cell.html = _lodash.default.escape(cell.html);
           }
 
-          return cell;
+          row[colIndex] = cell;
         });
       });
-      return {
-        columns: columns,
-        rows: rows,
-        headers: headers,
-        type: data.type,
-        refId: data.refId
-      };
+      return data;
     }
   }, {
     key: "fixDataTableSize",
@@ -777,7 +805,7 @@ function (_MetricsPanelCtrl) {
       var jElem = ctrl.element;
       var jContent = ctrl.panelElement.css('position', 'relative').html('');
       var elemContent = jContent[0];
-      var data = ctrl.parseDataList();
+      var data = ctrl.getData();
       ctrl.pageLengthOptions = ctrl.getPageLengthOptions();
 
       if (data && data.rows.length) {

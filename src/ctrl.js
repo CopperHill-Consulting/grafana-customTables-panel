@@ -146,9 +146,7 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
     if (dataList && dataList.length) {
       dataList.forEach(data => data.isReal = true);
       this.dataList = dataList;
-
-      // Add the variable columns to the data if there are any.
-      this.putVarColsInData();
+      this.updateDataListOptions();
     }
     else {
       let EXTRA_COLS = 2;
@@ -220,6 +218,13 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
     contentRules.splice(contentRules.indexOf(contentRule), 1);
   }
 
+  updateDataListOptions() {
+    this.dataListOptions = [{}].concat(this.dataList).map((x, i) => ({
+      id: i ? x.refId : null,
+      text: i ? x.refId : '--- NONE ---'
+    }));
+  }
+
   getPageLengthOptions() {
     return this.panel.pageLengths
         .replace(/\s+/g, '')
@@ -237,7 +242,7 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
   }
 
   exportCSV() {
-    let data = this.parseDataList();
+    let data = this.getData();
     JS.dom({
       _: 'a',
       href: 'data:text/csv;charset=utf-8,' + encodeURIComponent(
@@ -323,7 +328,6 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
       rowCallback(tr, rowData, pageDisplayIndex, displayIndex, rowIndex) {
         let tdIndex = 0;
         let row = rows[rowIndex];
-        console.log({rowData, rowIndex, arguments: arguments, row});
         rowData.forEach((cellText, colIndex) => {
           let cell = rows[rowIndex][colIndex];
           if (cell.visible) {
@@ -390,10 +394,8 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
     return dataList && dataList.find(({ refId }) => refId === dataRefId);
   }
 
-  putVarColsInData() {
+  putVarColsIn(data) {
     let varCols = this.panel.varCols;
-    let dataList = this.dataList;
-    let data = dataList[0];
     let columns = data.columns;
     let rows = data.rows.slice();
 
@@ -415,7 +417,12 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
           rows.sort((a, b) => a[mainJoinColIndex] < b[mainJoinColIndex] ? -1 : 1);
 
           // Order a sliced version of the varCols rows using the join column.
-          let vcRows = vcData.rows.slice().sort((a, b) => a[joinColIndex] < b[joinColIndex] ? -1 : 1);
+          let vcRowsPrime = vcData.rows;
+          let vcRows = vcRowsPrime.slice().sort((a, b) => a[joinColIndex] < b[joinColIndex] ? -1 : 1);
+
+          // Used later to reorder the new columns by the order they were found
+          // in the data.
+          let vcColIndexPairs = [];
 
           vcRows
             // Get a list of all of the new headers while simultaneously adding
@@ -454,22 +461,44 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
               return vcHeaders;
             }, [])
             // Add the new `columns`.
-            .forEach(vcHeader => columns.push({ text: vcHeader }));
+            .forEach((vcHeader, vcHeaderIndex) => {
+              vcColIndexPairs.push({
+                first: vcRowsPrime.findIndex(vcRow => vcRow[nameColIndex] === vcHeader),
+                index: vcHeaderIndex + MAIN_COL_COUNT
+              });
+              columns.push({ text: vcHeader });
+            });
 
-          // Make sure all rows have the right number of columns.
-          let colCount = columns.length;
-          rows.forEach(row => row.push.apply(row, Array(colCount - row.length).fill(null)));
+          // Used to reorder all of the var-cols
+          vcColIndexPairs.sort((a, b) => a.first - b.first);
+          const SPLICE_ARGS = [MAIN_COL_COUNT, vcColIndexPairs.length];
+
+          // Reorder all of the var-cols
+          columns.splice.apply(
+            columns,
+            SPLICE_ARGS.concat(vcColIndexPairs.map(pair => columns[pair.index]))
+          );
+
+          // Reorder all of the var-col cells in each row.
+          rows.forEach(row => {
+            row.splice.apply(
+              row,
+              SPLICE_ARGS.concat(vcColIndexPairs.map(pair => {
+                pair = row[pair.index];
+                return pair === undefined ? null : pair;
+              }))
+            );
+          });
         }
       }
     }
   }
 
-  parseDataList() {
+  getData() {
     let ctrl = this;
-    let dataList = ctrl.dataList;
-    let data = dataList[0];
-    let columns = data.columns;
-    let rows = data.rows;
+    let dataList = ctrl.dataList[0];
+    let columns = dataList.columns.map(col => _.cloneDeep(col));
+    let rows = dataList.rows.map(row => row.slice());
     let varsByName = ctrl.getVarsByName();
     let panel = ctrl.panel;
     let colDefs = panel.columnDefs;
@@ -481,10 +510,16 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
       )
     );
 
-    // Make an array of column headers.
-    let headers = columns.map(col => col.text);
+    // Create the data object to be returned.
+    let data = { columns, rows, type: dataList.type, refId: dataList.refId };
 
-    columns = _.cloneDeep(columns).map(column => {
+    // Add the variable columns to the data if there are any.
+    this.putVarColsIn(data);
+
+    // Make an array of column headers.
+    let headers = data.headers = columns.map(col => col.text);
+
+    columns.forEach((column, colIndex) => {
       column = _.extend(
         'string' === typeof column ? { text: column } : column,
         { visible: true }
@@ -526,11 +561,11 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
         column.html = _.escape(column.text);
       }
 
-      return column;
+      columns[colIndex] = column;
     });
 
-    rows = rows.map(row => {
-      return row.slice().map((cellValue, colIndex) => {
+    rows.forEach(row => {
+      row.forEach((cellValue, colIndex) => {
         let ruleApplied;
         let column = columns[colIndex];
         let colDef = column.colDef;
@@ -632,11 +667,11 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
           cell.html = _.escape(cell.html);
         }
 
-        return cell;
+        row[colIndex] = cell;
       });
     });
 
-    return { columns, rows, headers, type: data.type, refId: data.refId };
+    return data;
   }
 
   fixDataTableSize() {
@@ -659,7 +694,7 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
     let jElem = ctrl.element;
     let jContent = ctrl.panelElement.css('position', 'relative').html('');
     let elemContent = jContent[0];
-    let data = ctrl.parseDataList();
+    let data = ctrl.getData();
 
     ctrl.pageLengthOptions = ctrl.getPageLengthOptions();
 
