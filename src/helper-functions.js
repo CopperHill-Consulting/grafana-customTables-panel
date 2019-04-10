@@ -100,3 +100,7 @@ function getCellValue(valToMod, isForLink, { cell, cellsByColName, ruleType, rgx
     }
   )
 }
+
+const getHtmlText = (div => html => (div.innerHTML = html, div.textContent))(document.createElement('div'));
+
+module.exports = { toCSV, parseRegExp, pseudoCssToJSON, getCellValue, getHtmlText };

@@ -1,11 +1,12 @@
 import {MetricsPanelCtrl} from 'app/plugins/sdk';
 import _ from 'lodash';
 import * as JS from './external/YourJS.min';
-import './external/helper-functions';
+import { toCSV, parseRegExp, pseudoCssToJSON, getCellValue, getHtmlText } from './helper-functions';
 import './external/datatables/js/jquery.dataTables.min';
 import './external/datatables/js/dataTables.fixedHeader.min';
 import './external/datatables/css/jquery.dataTables.min.css!';
 import './external/datatables/css/fixedHeader.dataTables.min.css!';
+
 
 const DEFAULT_PSEUDO_CSS = `
 .theme-dark & {
@@ -17,9 +18,6 @@ table.dataTable tbody tr {
   }
   &, &.even, &.odd {
     background-color: transparent;
-    >.sorting_1, >.sorting_2, >.sorting_3 {
-      background-color: transparent;
-    }
     td {
       border-color: transparent;
     }
@@ -239,25 +237,21 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
   }
 
   exportCSV() {
-    let div = JS.dom({ _: 'div' });
-    let data = this.parseDataList(0);
-
+    let data = this.parseDataList();
     JS.dom({
       _: 'a',
       href: 'data:text/csv;charset=utf-8,' + encodeURIComponent(
         toCSV(
           data.rows.map(row => row.reduce((carry, cell) => {
             if (cell.visible) {
-              div.innerHTML = cell.html;
-              carry.push(div.textContent);
+              carry.push(getHtmlText(cell.html));
             }
             return carry;
           }, [])),
           {
             headers: data.columns.reduce((carry, header) => {
               if (header.visible) {
-                div.innerHTML = header.html;
-                carry.push(div.textContent);
+                carry.push(getHtmlText(header.html));
               }
               return carry;
             }, [])
@@ -281,24 +275,27 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
     );
   }
 
-  setContent(data) {
+  drawDataTable(data) {
     let ctrl = this;
     let panel = ctrl.panel;
     let jElem = ctrl.panelElement;
     let height = jElem.height();
-    let tableOpts = { _: 'table' };
+    let columns = data.columns;
+    let rows = data.rows;
+    let domTable = { _: 'table', style: {} };
     if (panel.isFullWidth) {
-      tableOpts.style.width = '100%';
+      domTable.style.width = '100%';
     }
 
-    let table = JS.dom(tableOpts);
+    let table = JS.dom(domTable);
     let jTable = jQuery(table).appendTo(jElem.html(''));
-    let columns = data.columns;
     let headers = data.headers;
     let dataTableOpts = {
-      data: data.rows,
       columns: columns.map((column, colIndex) => {
-        let result = { title: column.text, visible: column.visible };
+        let result = {
+          title: getHtmlText(column.html),
+          visible: column.visible
+        };
 
         let colDef = column.colDef;
         if (colDef && column.visible) {
@@ -314,6 +311,41 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
 
         return result;
       }),
+      headerCallback(tr) {
+        let thIndex = 0;
+        columns.forEach(col => {
+          if (col.visible) {
+            let jTH = jQuery('>th', tr).eq(thIndex++).html(col.html);
+          }
+        });
+      },
+      data: rows.map(row => row.map(cell => getHtmlText(cell.html))),
+      rowCallback(tr, rowData, pageDisplayIndex, displayIndex, rowIndex) {
+        let tdIndex = 0;
+        let row = rows[rowIndex];
+        console.log({rowData, rowIndex, arguments: arguments, row});
+        rowData.forEach((cellText, colIndex) => {
+          let cell = rows[rowIndex][colIndex];
+          if (cell.visible) {
+            let jTD = jQuery('> td', tr).eq(tdIndex++);
+            if (cell.cls && cell.cls.level === 'CELL') {
+              jTD.addClass(cell.cls.names);
+            }
+            let colDef = columns[colIndex].columnDef;
+            if (colDef && colDef.classNames) {
+              jTD.addClass(colDef.classNames);
+            }
+            let html = cell.html;
+            if (cell.tooltip) {
+              html = `<div data-tooltip data-original-title="${_.escape(cell.tooltip.display)}" data-placement="${cell.tooltip.placement}" class="d-inline-block">${html}</div>`;
+            }
+            jTD.html(html);
+          }
+          if (cell.cls && cell.cls.level === 'ROW') {
+            jQuery(tr).addClass(cell.cls.names);
+          }
+        });
+      },
       scrollY: height,
       scrollX: true,
       scrollCollapse: true,
@@ -328,40 +360,18 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
         [[], []]
       ),
       pageLength: panel.initialPageLength,
-      order: [],
-      headerCallback(tr) {
-        let thIndex = 0;
-        columns.forEach(col => {
-          if (col.visible) {
-            let jTH = jQuery('>th', tr).eq(thIndex++).html(col.html);
-          }
-        });
-      },
-      rowCallback(tr, rowData) {
-        let tdIndex = 0;
-        rowData.forEach(cell => {
-          if (cell.visible) {
-            let jTD = jQuery('>td', tr).eq(tdIndex++);
-            if (cell.cls && cell.cls.level === 'CELL') {
-              jTD.addClass(cell.cls.names);
-            }
-            let html = cell.html;
-            if (cell.tooltip) {
-              html = `<div data-tooltip data-original-title="${_.escape(cell.tooltip.display)}" data-placement="${cell.tooltip.placement}" class="d-inline-block">${html}</div>`;
-            }
-            jTD.html(html);
-          }
-          if (cell.cls && cell.cls.level === 'ROW') {
-            jQuery(tr).addClass(cell.cls.names);
-          }
-        });
-      }
+      order: []
     };
     let dataTable = jTable.DataTable(dataTableOpts);
 
+    // Horizontally center tables that are not full page width.
     jElem.find('.dataTables_scrollHeadInner').css('margin', '0 auto');
+
+    // Resize the scroll body of the table.
     ctrl.fixDataTableSize();
 
+    // Remove the old class names from the wrapper element and add a new
+    // targeted stylesheet.
     jElem.each((i, elem) => {
       elem.className = elem.className.replace(/\b_\d+\b/g, ' ').replace(/\s+/g, ' ').trim();
       elem.appendChild(JS.css(JSON.parse(pseudoCssToJSON(panel.pseudoCSS)), elem));
@@ -521,6 +531,7 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
 
     rows = rows.map(row => {
       return row.slice().map((cellValue, colIndex) => {
+        let ruleApplied;
         let column = columns[colIndex];
         let colDef = column.colDef;
 
@@ -610,10 +621,15 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
                 displayHTML = `<a href="${url}" target="${target}">${displayHTML}</a>`;
               }
               cell.html = displayHTML;
+              ruleApplied = rule;
             }
 
             return isMatch;
           });
+        }
+
+        if (!ruleApplied) {
+          cell.html = _.escape(cell.html);
         }
 
         return cell;
@@ -650,7 +666,7 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
     if (data && data.rows.length) {
       if (data.type === 'table') {
         try {
-          ctrl.setContent(data);
+          ctrl.drawDataTable(data);
           ctrl.panelJSON = this.getPanelSettingsJSON();
           jElem.tooltip({ selector: '[data-tooltip]' });
           isValid = true;

@@ -11,7 +11,7 @@ var _lodash = _interopRequireDefault(require("lodash"));
 
 var JS = _interopRequireWildcard(require("./external/YourJS.min"));
 
-require("./external/helper-functions");
+var _helperFunctions = require("./helper-functions");
 
 require("./external/datatables/js/jquery.dataTables.min");
 
@@ -45,7 +45,7 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 
 function _setPrototypeOf(o, p) { _setPrototypeOf = Object.setPrototypeOf || function _setPrototypeOf(o, p) { o.__proto__ = p; return o; }; return _setPrototypeOf(o, p); }
 
-var DEFAULT_PSEUDO_CSS = "\n.theme-dark & {\n  color: white;\n}\ntable.dataTable tbody tr {\n  &:hover td {\n    background-image: linear-gradient(0deg, rgba(128,128,128,0.1), rgba(128,128,128,0.1));\n  }\n  &, &.even, &.odd {\n    background-color: transparent;\n    >.sorting_1, >.sorting_2, >.sorting_3 {\n      background-color: transparent;\n    }\n    td {\n      border-color: transparent;\n    }\n  }\n  &.odd {\n    background-color: rgba(128,128,128,0.3);\n  }\n  &.even {\n    background-color: rgba(128,128,128,0.15);\n  }\n}\n";
+var DEFAULT_PSEUDO_CSS = "\n.theme-dark & {\n  color: white;\n}\ntable.dataTable tbody tr {\n  &:hover td {\n    background-image: linear-gradient(0deg, rgba(128,128,128,0.1), rgba(128,128,128,0.1));\n  }\n  &, &.even, &.odd {\n    background-color: transparent;\n    td {\n      border-color: transparent;\n    }\n  }\n  &.odd {\n    background-color: rgba(128,128,128,0.3);\n  }\n  &.even {\n    background-color: rgba(128,128,128,0.15);\n  }\n}\n";
 var TOOLTIP_PLACEMENTS = [{
   "id": "TOP",
   "text": "Top"
@@ -311,17 +311,13 @@ function (_MetricsPanelCtrl) {
   }, {
     key: "exportCSV",
     value: function exportCSV() {
-      var div = JS.dom({
-        _: 'div'
-      });
-      var data = this.parseDataList(0);
+      var data = this.parseDataList();
       JS.dom({
         _: 'a',
-        href: 'data:text/csv;charset=utf-8,' + encodeURIComponent(toCSV(data.rows.map(function (row) {
+        href: 'data:text/csv;charset=utf-8,' + encodeURIComponent((0, _helperFunctions.toCSV)(data.rows.map(function (row) {
           return row.reduce(function (carry, cell) {
             if (cell.visible) {
-              div.innerHTML = cell.html;
-              carry.push(div.textContent);
+              carry.push((0, _helperFunctions.getHtmlText)(cell.html));
             }
 
             return carry;
@@ -329,8 +325,7 @@ function (_MetricsPanelCtrl) {
         }), {
           headers: data.columns.reduce(function (carry, header) {
             if (header.visible) {
-              div.innerHTML = header.html;
-              carry.push(div.textContent);
+              carry.push((0, _helperFunctions.getHtmlText)(header.html));
             }
 
             return carry;
@@ -351,29 +346,30 @@ function (_MetricsPanelCtrl) {
       }, {});
     }
   }, {
-    key: "setContent",
-    value: function setContent(data) {
+    key: "drawDataTable",
+    value: function drawDataTable(data) {
       var ctrl = this;
       var panel = ctrl.panel;
       var jElem = ctrl.panelElement;
       var height = jElem.height();
-      var tableOpts = {
-        _: 'table'
+      var columns = data.columns;
+      var rows = data.rows;
+      var domTable = {
+        _: 'table',
+        style: {}
       };
 
       if (panel.isFullWidth) {
-        tableOpts.style.width = '100%';
+        domTable.style.width = '100%';
       }
 
-      var table = JS.dom(tableOpts);
+      var table = JS.dom(domTable);
       var jTable = jQuery(table).appendTo(jElem.html(''));
-      var columns = data.columns;
       var headers = data.headers;
       var dataTableOpts = {
-        data: data.rows,
         columns: columns.map(function (column, colIndex) {
           var result = {
-            title: column.text,
+            title: (0, _helperFunctions.getHtmlText)(column.html),
             visible: column.visible
           };
           var colDef = column.colDef;
@@ -393,17 +389,6 @@ function (_MetricsPanelCtrl) {
 
           return result;
         }),
-        scrollY: height,
-        scrollX: true,
-        scrollCollapse: true,
-        ordering: panel.allowOrdering,
-        searching: panel.allowSearching,
-        lengthChange: panel.allowLengthChange,
-        lengthMenu: ctrl.getPageLengthOptions().reduce(function (arr, opt) {
-          return [arr[0].concat([opt.value === Infinity ? -1 : opt.value]), arr[1].concat([opt.value === Infinity ? 'All' : opt.value])];
-        }, [[], []]),
-        pageLength: panel.initialPageLength,
-        order: [],
         headerCallback: function headerCallback(tr) {
           var thIndex = 0;
           columns.forEach(function (col) {
@@ -412,14 +397,34 @@ function (_MetricsPanelCtrl) {
             }
           });
         },
-        rowCallback: function rowCallback(tr, rowData) {
+        data: rows.map(function (row) {
+          return row.map(function (cell) {
+            return (0, _helperFunctions.getHtmlText)(cell.html);
+          });
+        }),
+        rowCallback: function rowCallback(tr, rowData, pageDisplayIndex, displayIndex, rowIndex) {
           var tdIndex = 0;
-          rowData.forEach(function (cell) {
+          var row = rows[rowIndex];
+          console.log({
+            rowData: rowData,
+            rowIndex: rowIndex,
+            arguments: arguments,
+            row: row
+          });
+          rowData.forEach(function (cellText, colIndex) {
+            var cell = rows[rowIndex][colIndex];
+
             if (cell.visible) {
-              var jTD = jQuery('>td', tr).eq(tdIndex++);
+              var jTD = jQuery('> td', tr).eq(tdIndex++);
 
               if (cell.cls && cell.cls.level === 'CELL') {
                 jTD.addClass(cell.cls.names);
+              }
+
+              var colDef = columns[colIndex].columnDef;
+
+              if (colDef && colDef.classNames) {
+                jTD.addClass(colDef.classNames);
               }
 
               var html = cell.html;
@@ -435,14 +440,29 @@ function (_MetricsPanelCtrl) {
               jQuery(tr).addClass(cell.cls.names);
             }
           });
-        }
+        },
+        scrollY: height,
+        scrollX: true,
+        scrollCollapse: true,
+        ordering: panel.allowOrdering,
+        searching: panel.allowSearching,
+        lengthChange: panel.allowLengthChange,
+        lengthMenu: ctrl.getPageLengthOptions().reduce(function (arr, opt) {
+          return [arr[0].concat([opt.value === Infinity ? -1 : opt.value]), arr[1].concat([opt.value === Infinity ? 'All' : opt.value])];
+        }, [[], []]),
+        pageLength: panel.initialPageLength,
+        order: []
       };
-      var dataTable = jTable.DataTable(dataTableOpts);
-      jElem.find('.dataTables_scrollHeadInner').css('margin', '0 auto');
-      ctrl.fixDataTableSize();
+      var dataTable = jTable.DataTable(dataTableOpts); // Horizontally center tables that are not full page width.
+
+      jElem.find('.dataTables_scrollHeadInner').css('margin', '0 auto'); // Resize the scroll body of the table.
+
+      ctrl.fixDataTableSize(); // Remove the old class names from the wrapper element and add a new
+      // targeted stylesheet.
+
       jElem.each(function (i, elem) {
         elem.className = elem.className.replace(/\b_\d+\b/g, ' ').replace(/\s+/g, ' ').trim();
-        elem.appendChild(JS.css(JSON.parse(pseudoCssToJSON(panel.pseudoCSS)), elem));
+        elem.appendChild(JS.css(JSON.parse((0, _helperFunctions.pseudoCssToJSON)(panel.pseudoCSS)), elem));
       });
     }
   }, {
@@ -558,21 +578,16 @@ function (_MetricsPanelCtrl) {
       var colDefs = panel.columnDefs;
       var varCols = panel.varCols;
       var colDefRgxs = colDefs.map(function (colDef) {
-        return parseRegExp(colDef.filter);
+        return (0, _helperFunctions.parseRegExp)(colDef.filter);
       });
       var colDefContentRuleFilters = colDefs.map(function (colDef) {
         return colDef.contentRules.map(function (rule) {
-          return rule.type === 'FILTER' ? parseRegExp(rule.filter) : null;
+          return rule.type === 'FILTER' ? (0, _helperFunctions.parseRegExp)(rule.filter) : null;
         });
       }); // Make an array of column headers.
 
       var headers = columns.map(function (col) {
         return col.text;
-      });
-      console.log({
-        columns: columns,
-        rows: rows,
-        headers: headers
       });
       columns = _lodash.default.cloneDeep(columns).map(function (column) {
         column = _lodash.default.extend('string' === typeof column ? {
@@ -591,11 +606,11 @@ function (_MetricsPanelCtrl) {
               ctrl: ctrl,
               varsByName: varsByName
             };
-            column.text = getCellValue(colDef.display, false, gcvOptions);
+            column.text = (0, _helperFunctions.getCellValue)(colDef.display, false, gcvOptions);
             var html = colDef.displayIsHTML ? column.text : _lodash.default.escape(column.text);
 
             if (colDef.url) {
-              var url = _lodash.default.escape(getCellValue(colDef.url, true, gcvOptions));
+              var url = _lodash.default.escape((0, _helperFunctions.getCellValue)(colDef.url, true, gcvOptions));
 
               var target = colDef.openNewWindow ? '_blank' : '';
               html = "<a href=\"".concat(url, "\" target=\"").concat(target, "\" onclick=\"event.stopPropagation()\">").concat(html, "</a>");
@@ -620,6 +635,7 @@ function (_MetricsPanelCtrl) {
       });
       rows = rows.map(function (row) {
         return row.slice().map(function (cellValue, colIndex) {
+          var ruleApplied;
           var column = columns[colIndex];
           var colDef = column.colDef;
           var cell = {
@@ -686,27 +702,27 @@ function (_MetricsPanelCtrl) {
               if (isMatch) {
                 if (rule.classNames) {
                   cell.cls = {
-                    names: getCellValue(rule.classNames, false, gcvOptions),
+                    names: (0, _helperFunctions.getCellValue)(rule.classNames, false, gcvOptions),
                     level: rule.classLevel
                   };
                 } // Set the display
 
 
-                var displayHTML = getCellValue(rule.display, false, gcvOptions);
+                var displayHTML = (0, _helperFunctions.getCellValue)(rule.display, false, gcvOptions);
 
                 if (!rule.displayIsHTML) {
                   displayHTML = _lodash.default.escape(displayHTML);
                 }
 
                 if (rule.url) {
-                  var url = _lodash.default.escape(getCellValue(rule.url, true, gcvOptions));
+                  var url = _lodash.default.escape((0, _helperFunctions.getCellValue)(rule.url, true, gcvOptions));
 
                   var target = rule.openNewWindow ? '_blank' : '';
                   var tooltipHTML = '';
 
                   if (rule.tooltip.isVisible) {
                     cell.tooltip = {
-                      display: getCellValue(rule.tooltip.display, false, gcvOptions),
+                      display: (0, _helperFunctions.getCellValue)(rule.tooltip.display, false, gcvOptions),
                       placement: rule.tooltip.placement.toLowerCase()
                     };
                   }
@@ -715,10 +731,15 @@ function (_MetricsPanelCtrl) {
                 }
 
                 cell.html = displayHTML;
+                ruleApplied = rule;
               }
 
               return isMatch;
             });
+          }
+
+          if (!ruleApplied) {
+            cell.html = _lodash.default.escape(cell.html);
           }
 
           return cell;
@@ -762,7 +783,7 @@ function (_MetricsPanelCtrl) {
       if (data && data.rows.length) {
         if (data.type === 'table') {
           try {
-            ctrl.setContent(data);
+            ctrl.drawDataTable(data);
             ctrl.panelJSON = this.getPanelSettingsJSON();
             jElem.tooltip({
               selector: '[data-tooltip]'
