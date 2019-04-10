@@ -8,7 +8,8 @@ function _iterableToArray(iter) { if (Symbol.iterator in Object(iter) || Object.
 
 function _arrayWithoutHoles(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = new Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } }
 
-var RGX_SIMPLE_NUMBER = /^\d+(\.\d+)?$/;
+var RGX_CELL_PLACEHOLDER = /\$\{(?:(value|cell|0|[1-9]\d*)|(col|var):((?:[^\}:\\]*|\\.)+))(?::(?:(raw)|(escape)|(param)(?::((?:[^\}:\\]*|\\.)+))?))?\}/g;
+var RGX_ESCAPED_CHARS = /\\(.)/g;
 /**
  * Converts an array of arrays of values to a CSV string.
  * @param rows {Array<Array>}
@@ -79,22 +80,31 @@ function getCellValue(valToMod, isForLink, _ref) {
   } : {
     '0': cell
   };
+  matches.value = cell;
+  matches.cell = cell;
+  var match,
+      match0,
+      matchesKey,
+      name,
+      isRaw,
+      result,
+      offset = 0;
 
-  _.extend(matches, {
-    value: cell,
-    cell: cell
-  });
-
-  return valToMod.replace(/\${(?:(value|cell|0|[1-9]\d*)|(col|var):((?:[^\}:\\]*|\\.)+))(?::(?:(raw)|(escape)|(param)(?::((?:[^\}:\\]*|\\.)+))?))?}/g, function (match, matchesKey, type, name, isRaw, isEscape, isParam, paramName) {
-    isRaw = isRaw || !(isForLink || isEscape);
-    name = matchesKey || name && name.replace(/\\(.)/g, '$1');
-
-    var result = _toConsumableArray(new Set(matchesKey ? _.has(matches, matchesKey) ? [matches[matchesKey]] : [] : type === 'col' ? _.has(cellsByColName, name) ? [cellsByColName[name]] : [] : _.has(varsByName, name) ? varsByName[name] : []));
-
-    return result.length < 1 ? match : isRaw ? result.join(',') : isParam ? result.map(function (v) {
-      return encodeURIComponent(paramName == undefined ? name : paramName) + '=' + encodeURIComponent(v);
+  while (match = RGX_CELL_PLACEHOLDER.exec(valToMod)) {
+    match0 = match[0];
+    matchesKey = match[1];
+    name = match[3];
+    isRaw = match[4] || !(isForLink || match[5]);
+    name = matchesKey || name && name.replace(RGX_ESCAPED_CHARS, '$1');
+    result = _toConsumableArray(new Set(matchesKey ? _.has(matches, matchesKey) ? [matches[matchesKey]] : [] : match[2] === 'col' ? _.has(cellsByColName, name) ? [cellsByColName[name]] : [] : _.has(varsByName, name) ? varsByName[name] : []));
+    result = result.length < 1 ? match0 : isRaw ? result.join(',') : match[6] ? result.map(function (v) {
+      return encodeURIComponent(match[7] == undefined ? name : match[7]) + '=' + encodeURIComponent(v);
     }).join('&') : encodeURIComponent(result.join(','));
-  });
+    valToMod = valToMod.slice(0, match.index + offset) + result + valToMod.slice(match0.length + offset);
+    offset += result.length - match0.length;
+  }
+
+  return valToMod;
 }
 
 var getHtmlText = function (div) {

@@ -1,12 +1,21 @@
 import {MetricsPanelCtrl} from 'app/plugins/sdk';
 import _ from 'lodash';
 import * as JS from './external/YourJS.min';
-import { toCSV, parseRegExp, pseudoCssToJSON, getCellValue, getHtmlText } from './helper-functions';
+import {
+  toCSV,
+  parseRegExp,
+  pseudoCssToJSON,
+  getCellValue,
+  getHtmlText
+} from './helper-functions';
 import './external/datatables/js/jquery.dataTables.min';
 import './external/datatables/js/dataTables.fixedHeader.min';
+// import './external/datatables/js/dataTables.scroller.min';
 import './external/datatables/css/jquery.dataTables.min.css!';
 import './external/datatables/css/fixedHeader.dataTables.min.css!';
+// import './external/datatables/css/scroller.dataTables.css!';
 
+const RGX_SIMPLE_NUMBER = /^\d+(\.\d+)?$/;
 
 const DEFAULT_PSEUDO_CSS = `
 .theme-dark & {
@@ -350,6 +359,10 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
           }
         });
       },
+      // deferRender: true,
+      // scroller: {
+      //   displayBuffer: 1
+      // },
       scrollY: height,
       scrollX: true,
       scrollCollapse: true,
@@ -520,10 +533,12 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
     let headers = data.headers = columns.map(col => col.text);
 
     columns.forEach((column, colIndex) => {
-      column = _.extend(
-        'string' === typeof column ? { text: column } : column,
-        { visible: true }
-      );
+      if ('string' === typeof column) {
+        column = { text: column, visible: true };
+      }
+      else {
+        column.visible = true;
+      }
 
       colDefRgxs.find((colDefRgx, colDefIndex) => {
         if (colDefRgx.test(column.text)) {
@@ -546,12 +561,10 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
             html = `<a href="${url}" target="${target}" onclick="event.stopPropagation()">${html}</a>`;
           }
 
-          _.extend(column, {
-            colDef,
-            colDefContentRuleFilters: colDefContentRuleFilters[colDefIndex],
-            html: html,
-            visible: colDef.isVisible
-          });
+          column.colDef = colDef;
+          column.colDefContentRuleFilters = colDefContentRuleFilters[colDefIndex];
+          column.html = html;
+          column.visible = colDef.isVisible;
 
           return true;
         }
@@ -564,8 +577,10 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
       columns[colIndex] = column;
     });
 
-    rows.forEach(row => {
-      row.forEach((cellValue, colIndex) => {
+    for (let row, rowCount = rows.length, rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+      row = rows[rowIndex];
+      for (let cellValue, cellCount = row.length, colIndex = 0; colIndex < cellCount; colIndex++) {
+        cellValue = row[colIndex];
         let ruleApplied;
         let column = columns[colIndex];
         let colDef = column.colDef;
@@ -577,13 +592,14 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
 
         if (colDef) {
           let rules = colDef.contentRules;
-          let cellsByColName = row.reduceRight(
-            (carry, val, i) => _.extend(carry, { [headers[i]]: val }),
-            {}
-          );
+          let cellsByColName = {};
+          for (let ci = row.length; ci--;) {
+            cellsByColName[headers[ci]] = row[ci];
+          }
 
           // Use Array#find() solely to match the first applicable rule...
-          rules.find((rule, ruleIndex) => {
+          for (let rule, ruleCount = rules.length, ruleIndex = 0; ruleIndex < ruleCount; ruleIndex++) {
+            rule = rules[ruleIndex];
             let isMatch = true;
             let type = rule.type;
             let colDefContentRuleFilter = column.colDefContentRuleFilters[ruleIndex];
@@ -657,10 +673,10 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
               }
               cell.html = displayHTML;
               ruleApplied = rule;
-            }
 
-            return isMatch;
-          });
+              break;
+            }
+          }
         }
 
         if (!ruleApplied) {
@@ -668,9 +684,8 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
         }
 
         row[colIndex] = cell;
-      });
-    });
-
+      }
+    }
     return data;
   }
 

@@ -27,8 +27,6 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 
 function _typeof(obj) { if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
 
-function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
-
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } }
@@ -45,6 +43,8 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 
 function _setPrototypeOf(o, p) { _setPrototypeOf = Object.setPrototypeOf || function _setPrototypeOf(o, p) { o.__proto__ = p; return o; }; return _setPrototypeOf(o, p); }
 
+// import './external/datatables/css/scroller.dataTables.css!';
+var RGX_SIMPLE_NUMBER = /^\d+(\.\d+)?$/;
 var DEFAULT_PSEUDO_CSS = "\n.theme-dark & {\n  color: white;\n}\ntable.dataTable tbody tr {\n  &:hover td {\n    background-image: linear-gradient(0deg, rgba(128,128,128,0.1), rgba(128,128,128,0.1));\n  }\n  &, &.even, &.odd {\n    background-color: transparent;\n    td {\n      border-color: transparent;\n    }\n  }\n  &.odd {\n    background-color: rgba(128,128,128,0.3);\n  }\n  &.even {\n    background-color: rgba(128,128,128,0.15);\n  }\n}\n";
 var TOOLTIP_PLACEMENTS = [{
   "id": "TOP",
@@ -444,6 +444,10 @@ function (_MetricsPanelCtrl) {
             }
           });
         },
+        // deferRender: true,
+        // scroller: {
+        //   displayBuffer: 1
+        // },
         scrollY: height,
         scrollX: true,
         scrollCollapse: true,
@@ -624,11 +628,15 @@ function (_MetricsPanelCtrl) {
         return col.text;
       });
       columns.forEach(function (column, colIndex) {
-        column = _lodash.default.extend('string' === typeof column ? {
-          text: column
-        } : column, {
-          visible: true
-        });
+        if ('string' === typeof column) {
+          column = {
+            text: column,
+            visible: true
+          };
+        } else {
+          column.visible = true;
+        }
+
         colDefRgxs.find(function (colDefRgx, colDefIndex) {
           if (colDefRgx.test(column.text)) {
             var colDef = colDefs[colDefIndex];
@@ -650,13 +658,10 @@ function (_MetricsPanelCtrl) {
               html = "<a href=\"".concat(url, "\" target=\"").concat(target, "\" onclick=\"event.stopPropagation()\">").concat(html, "</a>");
             }
 
-            _lodash.default.extend(column, {
-              colDef: colDef,
-              colDefContentRuleFilters: colDefContentRuleFilters[colDefIndex],
-              html: html,
-              visible: colDef.isVisible
-            });
-
+            column.colDef = colDef;
+            column.colDefContentRuleFilters = colDefContentRuleFilters[colDefIndex];
+            column.html = html;
+            column.visible = colDef.isVisible;
             return true;
           }
         });
@@ -667,9 +672,13 @@ function (_MetricsPanelCtrl) {
 
         columns[colIndex] = column;
       });
-      rows.forEach(function (row) {
-        row.forEach(function (cellValue, colIndex) {
-          var ruleApplied;
+
+      for (var row, rowCount = rows.length, rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+        row = rows[rowIndex];
+
+        for (var cellValue, cellCount = row.length, colIndex = 0; colIndex < cellCount; colIndex++) {
+          cellValue = row[colIndex];
+          var ruleApplied = void 0;
           var column = columns[colIndex];
           var colDef = column.colDef;
           var cell = {
@@ -679,11 +688,15 @@ function (_MetricsPanelCtrl) {
 
           if (colDef) {
             var rules = colDef.contentRules;
-            var cellsByColName = row.reduceRight(function (carry, val, i) {
-              return _lodash.default.extend(carry, _defineProperty({}, headers[i], val));
-            }, {}); // Use Array#find() solely to match the first applicable rule...
+            var cellsByColName = {};
 
-            rules.find(function (rule, ruleIndex) {
+            for (var ci = row.length; ci--;) {
+              cellsByColName[headers[ci]] = row[ci];
+            } // Use Array#find() solely to match the first applicable rule...
+
+
+            for (var rule, ruleCount = rules.length, ruleIndex = 0; ruleIndex < ruleCount; ruleIndex++) {
+              rule = rules[ruleIndex];
               var isMatch = true;
               var type = rule.type;
               var colDefContentRuleFilter = column.colDefContentRuleFilters[ruleIndex];
@@ -766,10 +779,9 @@ function (_MetricsPanelCtrl) {
 
                 cell.html = displayHTML;
                 ruleApplied = rule;
+                break;
               }
-
-              return isMatch;
-            });
+            }
           }
 
           if (!ruleApplied) {
@@ -777,8 +789,9 @@ function (_MetricsPanelCtrl) {
           }
 
           row[colIndex] = cell;
-        });
-      });
+        }
+      }
+
       return data;
     }
   }, {

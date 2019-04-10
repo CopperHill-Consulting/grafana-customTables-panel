@@ -1,4 +1,5 @@
-const RGX_SIMPLE_NUMBER = /^\d+(\.\d+)?$/;
+const RGX_CELL_PLACEHOLDER = /\$\{(?:(value|cell|0|[1-9]\d*)|(col|var):((?:[^\}:\\]*|\\.)+))(?::(?:(raw)|(escape)|(param)(?::((?:[^\}:\\]*|\\.)+))?))?\}/g;
+const RGX_ESCAPED_CHARS = /\\(.)/g;
 
 /**
  * Converts an array of arrays of values to a CSV string.
@@ -77,28 +78,34 @@ function getCellValue(valToMod, isForLink, { cell, cellsByColName, ruleType, rgx
       ? rgx.exec(cell + '')
       : { '0': 'null' }
     : { '0': cell };
-  _.extend(matches, { value: cell, cell });
-  return valToMod.replace(
-    /\${(?:(value|cell|0|[1-9]\d*)|(col|var):((?:[^\}:\\]*|\\.)+))(?::(?:(raw)|(escape)|(param)(?::((?:[^\}:\\]*|\\.)+))?))?}/g,
-    function (match, matchesKey, type, name, isRaw, isEscape, isParam, paramName) {
-      isRaw = isRaw || !(isForLink || isEscape);
-      name = matchesKey || (name && name.replace(/\\(.)/g, '$1'));
-      let result = [...new Set(
-        matchesKey
-          ? _.has(matches, matchesKey) ? [matches[matchesKey]] : []
-          : type === 'col'
-            ? _.has(cellsByColName, name) ? [cellsByColName[name]] : []
-            : _.has(varsByName, name) ? varsByName[name] : []
-      )];
-      return result.length < 1
-        ? match
-        : isRaw
-          ? result.join(',')
-          : isParam
-            ? result.map(v => encodeURIComponent(paramName == undefined ? name : paramName) + '=' + encodeURIComponent(v)).join('&')
-            : encodeURIComponent(result.join(','));
-    }
-  )
+  matches.value = cell;
+  matches.cell = cell;
+  
+  let match, match0, matchesKey, name, isRaw, result, offset = 0;
+  while (match = RGX_CELL_PLACEHOLDER.exec(valToMod)) {
+    match0 = match[0];
+    matchesKey = match[1];
+    name = match[3];
+    isRaw = match[4] || !(isForLink || match[5]);
+    name = matchesKey || (name && name.replace(RGX_ESCAPED_CHARS, '$1'));
+    result = [...new Set(
+      matchesKey
+        ? _.has(matches, matchesKey) ? [matches[matchesKey]] : []
+        : match[2] === 'col'
+          ? _.has(cellsByColName, name) ? [cellsByColName[name]] : []
+          : _.has(varsByName, name) ? varsByName[name] : []
+    )];
+    result = result.length < 1
+      ? match0
+      : isRaw
+        ? result.join(',')
+        : match[6]
+          ? result.map(v => encodeURIComponent(match[7] == undefined ? name : match[7]) + '=' + encodeURIComponent(v)).join('&')
+          : encodeURIComponent(result.join(','));
+    valToMod = valToMod.slice(0, match.index + offset) + result + valToMod.slice(match0.length + offset);
+    offset += result.length - match0.length;
+  }
+  return valToMod;
 }
 
 const getHtmlText = (div => html => (div.innerHTML = html, div.textContent))(document.createElement('div'));
