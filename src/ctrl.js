@@ -10,10 +10,8 @@ import {
 } from './helper-functions';
 import './external/datatables/js/jquery.dataTables.min';
 import './external/datatables/js/dataTables.fixedHeader.min';
-// import './external/datatables/js/dataTables.scroller.min';
 import './external/datatables/css/jquery.dataTables.min.css!';
 import './external/datatables/css/fixedHeader.dataTables.min.css!';
-// import './external/datatables/css/scroller.dataTables.css!';
 
 const RGX_SIMPLE_NUMBER = /^\d+(\.\d+)?$/;
 
@@ -359,10 +357,6 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
           }
         });
       },
-      // deferRender: true,
-      // scroller: {
-      //   displayBuffer: 1
-      // },
       scrollY: height,
       scrollX: true,
       scrollCollapse: true,
