@@ -43,7 +43,6 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 
 function _setPrototypeOf(o, p) { _setPrototypeOf = Object.setPrototypeOf || function _setPrototypeOf(o, p) { o.__proto__ = p; return o; }; return _setPrototypeOf(o, p); }
 
-// import './external/datatables/css/scroller.dataTables.css!';
 var RGX_SIMPLE_NUMBER = /^\d+(\.\d+)?$/;
 var DEFAULT_PSEUDO_CSS = "\n.theme-dark & {\n  color: white;\n}\ntable.dataTable tbody tr {\n  &:hover td {\n    background-image: linear-gradient(0deg, rgba(128,128,128,0.1), rgba(128,128,128,0.1));\n  }\n  &, &.even, &.odd {\n    background-color: transparent;\n    td {\n      border-color: transparent;\n    }\n  }\n  &.odd {\n    background-color: rgba(128,128,128,0.3);\n  }\n  &.even {\n    background-color: rgba(128,128,128,0.15);\n  }\n}\n";
 var TOOLTIP_PLACEMENTS = [{
@@ -321,9 +320,13 @@ function (_MetricsPanelCtrl) {
     key: "exportCSV",
     value: function exportCSV() {
       var data = this.getData();
+      var rows = data.rows,
+          columns = data.columns,
+          headers = data.headers;
+      this.processRows(rows, columns, headers, this.getVarsByName());
       JS.dom({
         _: 'a',
-        href: 'data:text/csv;charset=utf-8,' + encodeURIComponent((0, _helperFunctions.toCSV)(data.rows.map(function (row) {
+        href: 'data:text/csv;charset=utf-8,' + encodeURIComponent((0, _helperFunctions.toCSV)(rows.map(function (row) {
           return row.reduce(function (carry, cell) {
             if (cell.visible) {
               carry.push((0, _helperFunctions.getHtmlText)(cell.html));
@@ -332,9 +335,9 @@ function (_MetricsPanelCtrl) {
             return carry;
           }, []);
         }), {
-          headers: data.columns.reduce(function (carry, header) {
-            if (header.visible) {
-              carry.push((0, _helperFunctions.getHtmlText)(header.html));
+          headers: columns.reduce(function (carry, col) {
+            if (col.visible) {
+              carry.push((0, _helperFunctions.getHtmlText)(col.html));
             }
 
             return carry;
@@ -363,6 +366,7 @@ function (_MetricsPanelCtrl) {
       var height = jElem.height();
       var columns = data.columns;
       var rows = data.rows;
+      var varsByName = ctrl.getVarsByName();
       var domTable = {
         _: 'table',
         style: {}
@@ -406,16 +410,14 @@ function (_MetricsPanelCtrl) {
             }
           });
         },
-        data: rows.map(function (row) {
-          return row.map(function (cell) {
-            return (0, _helperFunctions.getHtmlText)(cell.html);
-          });
-        }),
+        data: rows,
         rowCallback: function rowCallback(tr, rowData, pageDisplayIndex, displayIndex, rowIndex) {
-          var tdIndex = 0;
-          var row = rows[rowIndex];
-          rowData.forEach(function (cellText, colIndex) {
-            var cell = rows[rowIndex][colIndex];
+          if (!rowData.isProcessed) {
+            ctrl.processRows([rowData], columns, headers, varsByName);
+          }
+
+          for (var cell, cellValue, tdIndex = 0, cellCount = rowData.length, colIndex = 0; colIndex < cellCount; colIndex++) {
+            cell = rowData[colIndex];
 
             if (cell.visible) {
               var jTD = jQuery('> td', tr).eq(tdIndex++);
@@ -442,12 +444,8 @@ function (_MetricsPanelCtrl) {
             if (cell.cls && cell.cls.level === 'ROW') {
               jQuery(tr).addClass(cell.cls.names);
             }
-          });
+          }
         },
-        // deferRender: true,
-        // scroller: {
-        //   displayBuffer: 1
-        // },
         scrollY: height,
         scrollX: true,
         scrollCollapse: true,
@@ -471,6 +469,154 @@ function (_MetricsPanelCtrl) {
         elem.className = elem.className.replace(/\b_\d+\b/g, ' ').replace(/\s+/g, ' ').trim();
         elem.appendChild(JS.css(JSON.parse((0, _helperFunctions.pseudoCssToJSON)(panel.pseudoCSS)), elem));
       });
+    }
+  }, {
+    key: "processRows",
+    value: function processRows(rows, columns, headers, varsByName) {
+      var ctrl = this;
+
+      for (var row, rowCount = rows.length, rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+        row = rows[rowIndex];
+
+        if (!row.isProcessed) {
+          var _loop = function _loop(_cell, _cellValue, tdIndex, cellCount, colIndex) {
+            var ruleApplied = void 0;
+            var column = columns[colIndex];
+            var colDef = column.colDef;
+            _cellValue = row[colIndex];
+            _cell = {
+              html: _cellValue,
+              visible: column.visible,
+              valueOf: function valueOf() {
+                cell = _cell;
+                cellValue = _cellValue;
+                return _cellValue;
+              },
+              toString: function toString() {
+                cell = _cell;
+                cellValue = _cellValue;
+                return _cellValue;
+              }
+            };
+
+            if (colDef) {
+              var rules = colDef.contentRules;
+              var cellsByColName = {};
+
+              for (var ci = row.length; ci--;) {
+                cellsByColName[headers[ci]] = row[ci];
+              }
+
+              for (var rule, ruleCount = rules.length, ruleIndex = 0; ruleIndex < ruleCount; ruleIndex++) {
+                rule = rules[ruleIndex];
+                var isMatch = true;
+                var type = rule.type;
+                var colDefContentRuleFilter = column.colDefContentRuleFilters[ruleIndex];
+                var gcvOptions = {
+                  cell: _cell.html,
+                  cellsByColName: cellsByColName,
+                  ruleType: rule.type,
+                  rgx: colDefContentRuleFilter,
+                  ctrl: ctrl,
+                  varsByName: varsByName
+                };
+
+                if (type === 'FILTER') {
+                  isMatch = colDefContentRuleFilter.test(_cell.html);
+                } else if (type === 'RANGE') {
+                  var minValue = rule.minValue;
+                  var minIsNum = RGX_SIMPLE_NUMBER.test(minValue);
+                  var maxValue = rule.maxValue;
+                  var maxIsNum = RGX_SIMPLE_NUMBER.test(maxValue);
+
+                  if (minIsNum) {
+                    minValue = +minValue;
+                  }
+
+                  if (maxIsNum) {
+                    maxValue = +maxValue;
+                  }
+
+                  if (minIsNum || maxIsNum) {
+                    _cellValue = +_cellValue;
+                  }
+
+                  var minValueOp = rule.minValueOp;
+
+                  if (minValueOp) {
+                    isMatch = isMatch && (minValueOp === '<=' ? minValue <= _cellValue : minValue < _cellValue);
+                  }
+
+                  var maxValueOp = rule.maxValueOp;
+
+                  if (maxValueOp) {
+                    isMatch = isMatch && (maxValueOp === '>=' ? maxValue >= _cellValue : maxValue > _cellValue);
+                  }
+                } else {
+                  isMatch = _cell.html == null;
+                }
+
+                isMatch = isMatch !== rule.negateCriteria; // If this is a match apply the class(es)
+
+                if (isMatch) {
+                  if (rule.classNames) {
+                    _cell.cls = {
+                      names: (0, _helperFunctions.getCellValue)(rule.classNames, false, gcvOptions),
+                      level: rule.classLevel
+                    };
+                  } // Set the display
+
+
+                  var displayHTML = (0, _helperFunctions.getCellValue)(rule.display, false, gcvOptions);
+
+                  if (!rule.displayIsHTML) {
+                    displayHTML = _lodash.default.escape(displayHTML);
+                  }
+
+                  if (rule.url) {
+                    var url = _lodash.default.escape((0, _helperFunctions.getCellValue)(rule.url, true, gcvOptions));
+
+                    var target = rule.openNewWindow ? '_blank' : '';
+                    var tooltipHTML = '';
+
+                    if (rule.tooltip.isVisible) {
+                      _cell.tooltip = {
+                        display: (0, _helperFunctions.getCellValue)(rule.tooltip.display, false, gcvOptions),
+                        placement: rule.tooltip.placement.toLowerCase()
+                      };
+                    }
+
+                    displayHTML = "<a href=\"".concat(url, "\" target=\"").concat(target, "\">").concat(displayHTML, "</a>");
+                  }
+
+                  _cell.html = displayHTML;
+                  ruleApplied = rule;
+                  break; // Break out of rules loop
+                }
+              } // End of rules for-loop
+
+            } // End if (colDef) {...}
+
+
+            if (!ruleApplied) {
+              _cell.html = _lodash.default.escape(_cell.html);
+            }
+
+            row[colIndex] = _cell;
+            cell = _cell;
+            cellValue = _cellValue;
+          };
+
+          for (var cell, cellValue, tdIndex = 0, cellCount = row.length, colIndex = 0; colIndex < cellCount; colIndex++) {
+            _loop(cell, cellValue, tdIndex, cellCount, colIndex);
+          } // End of row for-loop
+
+        } // End if (!row.isProcessed) {...}
+
+
+        row.isProcessed = true;
+      } // End of rows for-loop
+
     }
   }, {
     key: "getVarColColumns",
@@ -672,126 +818,6 @@ function (_MetricsPanelCtrl) {
 
         columns[colIndex] = column;
       });
-
-      for (var row, rowCount = rows.length, rowIndex = 0; rowIndex < rowCount; rowIndex++) {
-        row = rows[rowIndex];
-
-        for (var cellValue, cellCount = row.length, colIndex = 0; colIndex < cellCount; colIndex++) {
-          cellValue = row[colIndex];
-          var ruleApplied = void 0;
-          var column = columns[colIndex];
-          var colDef = column.colDef;
-          var cell = {
-            html: cellValue,
-            visible: column.visible
-          };
-
-          if (colDef) {
-            var rules = colDef.contentRules;
-            var cellsByColName = {};
-
-            for (var ci = row.length; ci--;) {
-              cellsByColName[headers[ci]] = row[ci];
-            } // Use Array#find() solely to match the first applicable rule...
-
-
-            for (var rule, ruleCount = rules.length, ruleIndex = 0; ruleIndex < ruleCount; ruleIndex++) {
-              rule = rules[ruleIndex];
-              var isMatch = true;
-              var type = rule.type;
-              var colDefContentRuleFilter = column.colDefContentRuleFilters[ruleIndex];
-              var gcvOptions = {
-                cell: cell.html,
-                cellsByColName: cellsByColName,
-                ruleType: rule.type,
-                rgx: colDefContentRuleFilter,
-                ctrl: ctrl,
-                varsByName: varsByName
-              };
-
-              if (type === 'FILTER') {
-                isMatch = colDefContentRuleFilter.test(cell.html);
-              } else if (type === 'RANGE') {
-                var minValue = rule.minValue;
-                var minIsNum = RGX_SIMPLE_NUMBER.test(minValue);
-                var maxValue = rule.maxValue;
-                var maxIsNum = RGX_SIMPLE_NUMBER.test(maxValue);
-
-                if (minIsNum) {
-                  minValue = +minValue;
-                }
-
-                if (maxIsNum) {
-                  maxValue = +maxValue;
-                }
-
-                if (minIsNum || maxIsNum) {
-                  cellValue = +cellValue;
-                }
-
-                var minValueOp = rule.minValueOp;
-
-                if (minValueOp) {
-                  isMatch = isMatch && (minValueOp === '<=' ? minValue <= cellValue : minValue < cellValue);
-                }
-
-                var maxValueOp = rule.maxValueOp;
-
-                if (maxValueOp) {
-                  isMatch = isMatch && (maxValueOp === '>=' ? maxValue >= cellValue : maxValue > cellValue);
-                }
-              } else {
-                isMatch = cell.html == null;
-              }
-
-              isMatch = isMatch !== rule.negateCriteria; // If this is a match apply the class(es)
-
-              if (isMatch) {
-                if (rule.classNames) {
-                  cell.cls = {
-                    names: (0, _helperFunctions.getCellValue)(rule.classNames, false, gcvOptions),
-                    level: rule.classLevel
-                  };
-                } // Set the display
-
-
-                var displayHTML = (0, _helperFunctions.getCellValue)(rule.display, false, gcvOptions);
-
-                if (!rule.displayIsHTML) {
-                  displayHTML = _lodash.default.escape(displayHTML);
-                }
-
-                if (rule.url) {
-                  var url = _lodash.default.escape((0, _helperFunctions.getCellValue)(rule.url, true, gcvOptions));
-
-                  var target = rule.openNewWindow ? '_blank' : '';
-                  var tooltipHTML = '';
-
-                  if (rule.tooltip.isVisible) {
-                    cell.tooltip = {
-                      display: (0, _helperFunctions.getCellValue)(rule.tooltip.display, false, gcvOptions),
-                      placement: rule.tooltip.placement.toLowerCase()
-                    };
-                  }
-
-                  displayHTML = "<a href=\"".concat(url, "\" target=\"").concat(target, "\">").concat(displayHTML, "</a>");
-                }
-
-                cell.html = displayHTML;
-                ruleApplied = rule;
-                break;
-              }
-            }
-          }
-
-          if (!ruleApplied) {
-            cell.html = _lodash.default.escape(cell.html);
-          }
-
-          row[colIndex] = cell;
-        }
-      }
-
       return data;
     }
   }, {

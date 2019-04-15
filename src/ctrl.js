@@ -250,20 +250,23 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
 
   exportCSV() {
     let data = this.getData();
+    let { rows, columns, headers } = data;
+    this.processRows(rows, columns, headers, this.getVarsByName());
+
     JS.dom({
       _: 'a',
       href: 'data:text/csv;charset=utf-8,' + encodeURIComponent(
         toCSV(
-          data.rows.map(row => row.reduce((carry, cell) => {
+          rows.map(row => row.reduce((carry, cell) => {
             if (cell.visible) {
               carry.push(getHtmlText(cell.html));
             }
             return carry;
           }, [])),
           {
-            headers: data.columns.reduce((carry, header) => {
-              if (header.visible) {
-                carry.push(getHtmlText(header.html));
+            headers: columns.reduce((carry, col) => {
+              if (col.visible) {
+                carry.push(getHtmlText(col.html));
               }
               return carry;
             }, [])
@@ -294,6 +297,7 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
     let height = jElem.height();
     let columns = data.columns;
     let rows = data.rows;
+    let varsByName = ctrl.getVarsByName();
     let domTable = { _: 'table', style: {} };
     if (panel.isFullWidth) {
       domTable.style.width = '100%';
@@ -331,12 +335,14 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
           }
         });
       },
-      data: rows.map(row => row.map(cell => getHtmlText(cell.html))),
+      data: rows,
       rowCallback(tr, rowData, pageDisplayIndex, displayIndex, rowIndex) {
-        let tdIndex = 0;
-        let row = rows[rowIndex];
-        rowData.forEach((cellText, colIndex) => {
-          let cell = rows[rowIndex][colIndex];
+        if (!rowData.isProcessed) {
+          ctrl.processRows([rowData], columns, headers, varsByName);
+        }
+        for (let cell, cellValue, tdIndex = 0, cellCount = rowData.length, colIndex = 0; colIndex < cellCount; colIndex++) {
+          cell = rowData[colIndex];
+
           if (cell.visible) {
             let jTD = jQuery('> td', tr).eq(tdIndex++);
             if (cell.cls && cell.cls.level === 'CELL') {
@@ -355,7 +361,7 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
           if (cell.cls && cell.cls.level === 'ROW') {
             jQuery(tr).addClass(cell.cls.names);
           }
-        });
+        }
       },
       scrollY: height,
       scrollX: true,
@@ -387,6 +393,125 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
       elem.className = elem.className.replace(/\b_\d+\b/g, ' ').replace(/\s+/g, ' ').trim();
       elem.appendChild(JS.css(JSON.parse(pseudoCssToJSON(panel.pseudoCSS)), elem));
     });
+  }
+
+  processRows(rows, columns, headers, varsByName) {
+    let ctrl = this;
+
+    for (let row, rowCount = rows.length, rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+      row = rows[rowIndex];
+      if (!row.isProcessed) {
+        for (let cell, cellValue, tdIndex = 0, cellCount = row.length, colIndex = 0; colIndex < cellCount; colIndex++) {
+          let ruleApplied;
+          let column = columns[colIndex];
+          let colDef = column.colDef;
+
+          cellValue = row[colIndex];
+
+          cell = {
+            html: cellValue,
+            visible: column.visible,
+            valueOf() { return cellValue; },
+            toString() { return cellValue; }
+          };
+
+          if (colDef) {
+            let rules = colDef.contentRules;
+            let cellsByColName = {};
+            for (let ci = row.length; ci--;) {
+              cellsByColName[headers[ci]] = row[ci];
+            }
+
+            for (let rule, ruleCount = rules.length, ruleIndex = 0; ruleIndex < ruleCount; ruleIndex++) {
+              rule = rules[ruleIndex];
+              let isMatch = true;
+              let type = rule.type;
+              let colDefContentRuleFilter = column.colDefContentRuleFilters[ruleIndex];
+              let gcvOptions = {
+                cell: cell.html,
+                cellsByColName,
+                ruleType: rule.type,
+                rgx: colDefContentRuleFilter,
+                ctrl,
+                varsByName
+              };
+              if (type === 'FILTER') {
+                isMatch = colDefContentRuleFilter.test(cell.html);
+              }
+              else if (type === 'RANGE') {
+                let minValue = rule.minValue;
+                let minIsNum = RGX_SIMPLE_NUMBER.test(minValue);
+                let maxValue = rule.maxValue;
+                let maxIsNum = RGX_SIMPLE_NUMBER.test(maxValue);
+                if (minIsNum) {
+                  minValue = +minValue;
+                }
+                if (maxIsNum) {
+                  maxValue = +maxValue;
+                }
+
+                if (minIsNum || maxIsNum) {
+                  cellValue = +cellValue;
+                }
+
+                let minValueOp = rule.minValueOp;
+                if (minValueOp) {
+                  isMatch = isMatch && (minValueOp === '<=' ? minValue <= cellValue : (minValue < cellValue));
+                }
+                let maxValueOp = rule.maxValueOp;
+                if (maxValueOp) {
+                  isMatch = isMatch && (maxValueOp === '>=' ? maxValue >= cellValue : (maxValue > cellValue));
+                }
+              }
+              else {
+                isMatch = cell.html == null;
+              }
+
+              isMatch = isMatch !== rule.negateCriteria;
+
+              // If this is a match apply the class(es)
+              if (isMatch) {
+                if (rule.classNames) {
+                  cell.cls = {
+                    names: getCellValue(rule.classNames, false, gcvOptions),
+                    level: rule.classLevel
+                  };
+                }
+
+                // Set the display
+                let displayHTML = getCellValue(rule.display, false, gcvOptions);
+                if (!rule.displayIsHTML) {
+                  displayHTML = _.escape(displayHTML);
+                }
+                if (rule.url) {
+                  let url = _.escape(getCellValue(rule.url, true, gcvOptions));
+                  let target = rule.openNewWindow ? '_blank' : '';
+                  let tooltipHTML = '';
+                  if (rule.tooltip.isVisible) {
+                    cell.tooltip = {
+                      display: getCellValue(rule.tooltip.display, false, gcvOptions),
+                      placement: rule.tooltip.placement.toLowerCase()
+                    };
+                  }
+                  displayHTML = `<a href="${url}" target="${target}">${displayHTML}</a>`;
+                }
+                cell.html = displayHTML;
+                ruleApplied = rule;
+
+                break; // Break out of rules loop
+              }
+            } // End of rules for-loop
+          } // End if (colDef) {...}
+
+          if (!ruleApplied) {
+            cell.html = _.escape(cell.html);
+          }
+
+          row[colIndex] = cell;
+        } // End of row for-loop
+      } // End if (!row.isProcessed) {...}
+      row.isProcessed = true;
+    } // End of rows for-loop
   }
 
   getVarColColumns() {
@@ -571,115 +696,6 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
       columns[colIndex] = column;
     });
 
-    for (let row, rowCount = rows.length, rowIndex = 0; rowIndex < rowCount; rowIndex++) {
-      row = rows[rowIndex];
-      for (let cellValue, cellCount = row.length, colIndex = 0; colIndex < cellCount; colIndex++) {
-        cellValue = row[colIndex];
-        let ruleApplied;
-        let column = columns[colIndex];
-        let colDef = column.colDef;
-
-        let cell = {
-          html: cellValue,
-          visible: column.visible
-        };
-
-        if (colDef) {
-          let rules = colDef.contentRules;
-          let cellsByColName = {};
-          for (let ci = row.length; ci--;) {
-            cellsByColName[headers[ci]] = row[ci];
-          }
-
-          // Use Array#find() solely to match the first applicable rule...
-          for (let rule, ruleCount = rules.length, ruleIndex = 0; ruleIndex < ruleCount; ruleIndex++) {
-            rule = rules[ruleIndex];
-            let isMatch = true;
-            let type = rule.type;
-            let colDefContentRuleFilter = column.colDefContentRuleFilters[ruleIndex];
-            let gcvOptions = {
-              cell: cell.html,
-              cellsByColName,
-              ruleType: rule.type,
-              rgx: colDefContentRuleFilter,
-              ctrl,
-              varsByName
-            };
-            if (type === 'FILTER') {
-              isMatch = colDefContentRuleFilter.test(cell.html);
-            }
-            else if (type === 'RANGE') {
-              let minValue = rule.minValue;
-              let minIsNum = RGX_SIMPLE_NUMBER.test(minValue);
-              let maxValue = rule.maxValue;
-              let maxIsNum = RGX_SIMPLE_NUMBER.test(maxValue);
-              if (minIsNum) {
-                minValue = +minValue;
-              }
-              if (maxIsNum) {
-                maxValue = +maxValue;
-              }
-
-              if (minIsNum || maxIsNum) {
-                cellValue = +cellValue;
-              }
-
-              let minValueOp = rule.minValueOp;
-              if (minValueOp) {
-                isMatch = isMatch && (minValueOp === '<=' ? minValue <= cellValue : (minValue < cellValue));
-              }
-              let maxValueOp = rule.maxValueOp;
-              if (maxValueOp) {
-                isMatch = isMatch && (maxValueOp === '>=' ? maxValue >= cellValue : (maxValue > cellValue));
-              }
-            }
-            else {
-              isMatch = cell.html == null;
-            }
-
-            isMatch = isMatch !== rule.negateCriteria;
-
-            // If this is a match apply the class(es)
-            if (isMatch) {
-              if (rule.classNames) {
-                cell.cls = {
-                  names: getCellValue(rule.classNames, false, gcvOptions),
-                  level: rule.classLevel
-                };
-              }
-
-              // Set the display
-              let displayHTML = getCellValue(rule.display, false, gcvOptions);
-              if (!rule.displayIsHTML) {
-                displayHTML = _.escape(displayHTML);
-              }
-              if (rule.url) {
-                let url = _.escape(getCellValue(rule.url, true, gcvOptions));
-                let target = rule.openNewWindow ? '_blank' : '';
-                let tooltipHTML = '';
-                if (rule.tooltip.isVisible) {
-                  cell.tooltip = {
-                    display: getCellValue(rule.tooltip.display, false, gcvOptions),
-                    placement: rule.tooltip.placement.toLowerCase()
-                  };
-                }
-                displayHTML = `<a href="${url}" target="${target}">${displayHTML}</a>`;
-              }
-              cell.html = displayHTML;
-              ruleApplied = rule;
-
-              break;
-            }
-          }
-        }
-
-        if (!ruleApplied) {
-          cell.html = _.escape(cell.html);
-        }
-
-        row[colIndex] = cell;
-      }
-    }
     return data;
   }
 
