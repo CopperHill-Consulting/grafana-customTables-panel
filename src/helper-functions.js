@@ -1,5 +1,6 @@
-const RGX_CELL_PLACEHOLDER = /\$\{(?:(value|cell|0|[1-9]\d*)|(col|var):((?:[^\}:\\]*|\\.)+))(?::(?:(raw)|(escape)|(param)(?::((?:[^\}:\\]*|\\.)+))?))?\}/g;
+const RGX_CELL_PLACEHOLDER = /\$\{(time)(?:-(to|from))?\}|\$\{(?:(value|cell|0|[1-9]\d*)|(col|var):((?:[^\}:\\]*|\\.)+))(?::(?:(raw)|(escape)|(param)(?::((?:[^\}:\\]*|\\.)+))?))?\}/g;
 const RGX_ESCAPED_CHARS = /\\(.)/g;
+//
 
 /**
  * Converts an array of arrays of values to a CSV string.
@@ -72,18 +73,31 @@ function pseudoCssToJSON(strLess) {
   }
 }
 
-function getCellValue(valToMod, isForLink, { cell, cellsByColName, ruleType, rgx, ctrl, varsByName }) {
+function getCellValue(valToMod, isForLink, { cell, cellsByColName, ruleType, rgx, ctrl, varsByName, getValueFormat, unitFormat, unitFormatDecimals }) {
   let matches = ruleType === 'FILTER'
     ? cell != null
       ? rgx.exec(cell + '')
       : { '0': 'null' }
     : { '0': cell };
-  matches.value = cell;
-  matches.cell = cell;
+
+  let timeVars = ctrl.timeSrv.time;
+
+  matches.value = 
+    /^dateTime/.test(unitFormat)
+      ? getValueFormat(unitFormat)(new Date(cell))
+      : matches.cell = (!['none', null, void 0].includes(unitFormat) && 'number' === typeof cell)
+        ? getValueFormat(unitFormat)(cell, unitFormatDecimals, null)
+        : cell;
 
   return valToMod.replace(
     RGX_CELL_PLACEHOLDER,
-    function(match0, matchesKey, isColOrVar, name, isRaw, isEscape, isParam, paramName) {
+    function (match0, isTime, opt_timePart, matchesKey, isColOrVar, name, isRaw, isEscape, isParam, paramName) {
+      if (isTime) {
+        return (opt_timePart != 'to' ? 'from=' + encodeURIComponent(timeVars.from) : '')
+          + (opt_timePart ? '' : '&')
+          + (opt_timePart != 'from' ? 'to=' + encodeURIComponent(timeVars.to) : '');
+      }
+
       isRaw = isRaw || !(isForLink || isEscape);
       name = matchesKey || (name && name.replace(RGX_ESCAPED_CHARS, '$1'));
       

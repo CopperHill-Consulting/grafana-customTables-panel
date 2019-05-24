@@ -8,8 +8,9 @@ function _iterableToArray(iter) { if (Symbol.iterator in Object(iter) || Object.
 
 function _arrayWithoutHoles(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = new Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } }
 
-var RGX_CELL_PLACEHOLDER = /\$\{(?:(value|cell|0|[1-9]\d*)|(col|var):((?:[^\}:\\]*|\\.)+))(?::(?:(raw)|(escape)|(param)(?::((?:[^\}:\\]*|\\.)+))?))?\}/g;
-var RGX_ESCAPED_CHARS = /\\(.)/g;
+var RGX_CELL_PLACEHOLDER = /\$\{(time)(?:-(to|from))?\}|\$\{(?:(value|cell|0|[1-9]\d*)|(col|var):((?:[^\}:\\]*|\\.)+))(?::(?:(raw)|(escape)|(param)(?::((?:[^\}:\\]*|\\.)+))?))?\}/g;
+var RGX_ESCAPED_CHARS = /\\(.)/g; //
+
 /**
  * Converts an array of arrays of values to a CSV string.
  * @param rows {Array<Array>}
@@ -74,15 +75,22 @@ function getCellValue(valToMod, isForLink, _ref) {
       ruleType = _ref.ruleType,
       rgx = _ref.rgx,
       ctrl = _ref.ctrl,
-      varsByName = _ref.varsByName;
+      varsByName = _ref.varsByName,
+      getValueFormat = _ref.getValueFormat,
+      unitFormat = _ref.unitFormat,
+      unitFormatDecimals = _ref.unitFormatDecimals;
   var matches = ruleType === 'FILTER' ? cell != null ? rgx.exec(cell + '') : {
     '0': 'null'
   } : {
     '0': cell
   };
-  matches.value = cell;
-  matches.cell = cell;
-  return valToMod.replace(RGX_CELL_PLACEHOLDER, function (match0, matchesKey, isColOrVar, name, isRaw, isEscape, isParam, paramName) {
+  var timeVars = ctrl.timeSrv.time;
+  matches.value = /^dateTime/.test(unitFormat) ? getValueFormat(unitFormat)(new Date(cell)) : matches.cell = !['none', null, void 0].includes(unitFormat) && 'number' === typeof cell ? getValueFormat(unitFormat)(cell, unitFormatDecimals, null) : cell;
+  return valToMod.replace(RGX_CELL_PLACEHOLDER, function (match0, isTime, opt_timePart, matchesKey, isColOrVar, name, isRaw, isEscape, isParam, paramName) {
+    if (isTime) {
+      return (opt_timePart != 'to' ? 'from=' + encodeURIComponent(timeVars.from) : '') + (opt_timePart ? '' : '&') + (opt_timePart != 'from' ? 'to=' + encodeURIComponent(timeVars.to) : '');
+    }
+
     isRaw = isRaw || !(isForLink || isEscape);
     name = matchesKey || name && name.replace(RGX_ESCAPED_CHARS, '$1');
 

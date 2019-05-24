@@ -1,6 +1,16 @@
-<div>
+<div class="section gf-form-group" style="margin-bottom: 0;">
   <button class="btn btn-secondary btn-lg btn-block" ng-click="ctrl.drawIfChanged()">
     <i class="fa fa-refresh"></i>
     Refresh the Table View
   </button>
+</div>
+
+<div class="section gf-form-group" style="margin-bottom: 0;">
+  <gf-form-switch
+    class="gf-form"
+    label="Auto Refresh"
+    label-class="width-auto"
+    checked="ctrl.panel.allowRedrawOnModify"
+    on-change="ctrl.autoRedraw()">
+  </gf-form-switch>
 </div>

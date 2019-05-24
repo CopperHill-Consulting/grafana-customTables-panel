@@ -1,4 +1,5 @@
-import {MetricsPanelCtrl} from 'app/plugins/sdk';
+import { MetricsPanelCtrl } from 'app/plugins/sdk';
+import { getValueFormat, getValueFormats } from '@grafana/ui';
 import _ from 'lodash';
 import * as JS from './external/YourJS.min';
 import {
@@ -37,6 +38,8 @@ table.dataTable tbody tr {
   }
 }
 `;
+
+const UNIT_FORMATS = getValueFormats();
 
 const TOOLTIP_PLACEMENTS = [
   { "id": "TOP", "text": "Top" },
@@ -77,6 +80,7 @@ const DEFAULT_PANEL_SETTINGS = {
   allowLengthChange: true,
   allowOrdering: true,
   allowSearching: true,
+  allowRedrawOnModify: true,
   columnDefs: [],
   initialPageLength: 25,
   isFullWidth: true,
@@ -96,6 +100,11 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
     super($scope, $injector);
 
     this.$rootScope = $rootScope;
+
+    // Make sure old versions have this value set to false.
+    if (!_.has(this.panel, 'allowRedrawOnModify')) {
+      this.panel.allowRedrawOnModify = false;
+    }
 
     _.defaultsDeep(this.panel, DEFAULT_PANEL_SETTINGS);
 
@@ -206,6 +215,8 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
       negateCriteria: false,
       display: '${value}',
       displayIsHTML: false,
+      unitFormat: 'none',
+      unitFormatDecimals: 0,
       minValue: null,
       maxValue: null,
       minValueOp: null,
@@ -433,7 +444,10 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
                 ruleType: rule.type,
                 rgx: colDefContentRuleFilter,
                 ctrl,
-                varsByName
+                varsByName,
+                getValueFormat,
+                unitFormat: rule.unitFormat,
+                unitFormatDecimals: rule.unitFormatDecimals
               };
               if (type === 'FILTER') {
                 isMatch = colDefContentRuleFilter.test(cell.html);
@@ -668,7 +682,10 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
             ruleType: 'FILTER',
             rgx: colDefRgx,
             ctrl,
-            varsByName
+            varsByName,
+            getValueFormat,
+            unitFormat: null,
+            unitFormatDecimals: null
           };
           column.text = getCellValue(colDef.display, false, gcvOptions);
 
@@ -750,11 +767,22 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
     }
   }
 
+  setPanelValue(rootVar, path, value) {
+    _.set(rootVar, path, value);
+    this.autoRedraw();
+  }
+
   link(scope, elem, attrs, ctrl) {
     this.element = elem;
     this.panelElement = elem.find('.panel-content');
     this.throttleDraw = _.debounce(this.draw.bind(this), 1000);
   }
 }
+
+DataTablePanelCtrl.prototype.autoRedraw = _.debounce(function() {
+  if (this.panel.allowRedrawOnModify) {
+    this.drawIfChanged.apply(this, arguments);
+  }
+}, 500);
 
 DataTablePanelCtrl.templateUrl = 'partials/module.html';

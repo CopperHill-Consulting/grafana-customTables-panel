@@ -1,45 +1,84 @@
 <div class="edit-tab-content" ng-repeat="cd in ctrl.panel.columnDefs">
   <div class="gf-form">
     <label class="gf-form-label width-12">Filter</label>
-    <input type="text" class="gf-form-input width-max" ng-model="cd.filter" placeholder="Name or RegExp matching column.">
+    <input type="text"
+      class="gf-form-input width-max"
+      ng-model="cd.filter"
+      placeholder="Name or RegExp matching column."
+      ng-blur="ctrl.autoRedraw()"
+    />
   </div>
   <div class="gf-form">
     <label class="gf-form-label width-12">Display</label>
-    <input type="text" class="gf-form-input width-max" ng-model="cd.display" placeholder="eg. Column - ${cell}">
+    <input type="text"
+      class="gf-form-input width-max"
+      ng-model="cd.display"
+      placeholder="eg. Column - ${cell}"
+      ng-blur="ctrl.autoRedraw()"
+    />
   </div>
   <div class="gf-form">
     <gf-form-switch
         class="gf-form"
         label="Display Is HTML"
         label-class="width-12"
-        checked="cd.displayIsHTML">
+        checked="cd.displayIsHTML"
+        on-change="ctrl.autoRedraw()">
     </gf-form-switch>
   </div>
   <div class="gf-form">
     <label class="gf-form-label width-12">Link URL</label>
-    <input type="text" class="gf-form-input width-max" ng-model="cd.url" placeholder="eg. https://example.com/">
+    <input type="text"
+      class="gf-form-input width-max"
+      ng-model="cd.url"
+      placeholder="eg. https://example.com/"
+      ng-blur="ctrl.autoRedraw()"
+    />
   </div>
   <div class="gf-form" ng-if="cd.url">
     <gf-form-switch
-        class="gf-form"
-        label="Open In New Window"
-        label-class="width-12"
-        checked="cd.openNewWindow">
+      class="gf-form"
+      label="Open In New Window"
+      label-class="width-12"
+      checked="cd.openNewWindow"
+      on-change="ctrl.autoRedraw()">
     </gf-form-switch>
   </div>
   <div class="gf-form">
-    <gf-form-switch class="gf-form" label="Is Visible" label-class="width-12" checked="cd.isVisible"></gf-form-switch>
+    <gf-form-switch
+      class="gf-form"
+      label="Is Visible"
+      label-class="width-12"
+      checked="cd.isVisible"
+      on-change="ctrl.autoRedraw()">
+    </gf-form-switch>
   </div>
   <div ng-if="cd.isVisible">
     <div class="gf-form">
-      <gf-form-switch class="gf-form" label="Is Searchable" label-class="width-12" checked="cd.isSearchable"></gf-form-switch>
+      <gf-form-switch
+        class="gf-form"
+        label="Is Searchable"
+        label-class="width-12"
+        checked="cd.isSearchable"
+        on-change="ctrl.autoRedraw()">
+      </gf-form-switch>
     </div>
     <div class="gf-form">
-      <gf-form-switch class="gf-form" label="Is Sortable" label-class="width-12" checked="cd.isOrderable"></gf-form-switch>
+      <gf-form-switch class="gf-form"
+        label="Is Sortable"
+        label-class="width-12"
+        checked="cd.isOrderable"
+        on-change="ctrl.autoRedraw()">
+      </gf-form-switch>
     </div>
     <div class="gf-form">
       <label class="gf-form-label width-12">Width</label>
-      <input type="text" class="gf-form-input width-max" ng-model="cd.width" placeholder="eg. 20vh or 150px or 33%">
+      <input type="text"
+        class="gf-form-input width-max"
+        ng-model="cd.width"
+        placeholder="eg. 20vh or 150px or 33%"
+        ng-blur="ctrl.autoRedraw()"
+      />
     </div>
     <div class="gf-form">
       <label class="gf-form-label width-12">
@@ -49,7 +88,12 @@
           You can use this to then style these columns in the CSS stylying section.
         </tip>
       </label>
-      <input type="text" class="gf-form-input width-max" ng-model="cd.classNames" placeholder="eg. col-ages">
+      <input type="text"
+        class="gf-form-input width-max"
+        ng-model="cd.classNames"
+        placeholder="eg. col-ages"
+        ng-blur="ctrl.autoRedraw()"
+      />
     </div>
   </div>
 
@@ -59,87 +103,163 @@
     <div ng-repeat="rule in cd.contentRules">
       <div class="gf-form">
         <label class="gf-form-label width-12">Type</label>
-        <select class="gf-form-input" ng-model="rule.type" ng-options="t.id as t.text for t in ctrl.getConstByName('CONTENT_RULE_TYPES')"></select>
+        <select class="gf-form-input"
+          ng-model="rule.type"
+          ng-options="t.id as t.text for t in ctrl.getConstByName('CONTENT_RULE_TYPES')"
+          ng-change="ctrl.autoRedraw()">
+        </select>
       </div>
       <div ng-if="rule.type === 'FILTER'">
         <div class="gf-form">
           <label class="gf-form-label width-12">Filter</label>
-          <input type="text" class="gf-form-input width-max" ng-model="rule.filter" placeholder="Name or RegExp matching column.">
+          <input type="text"
+            class="gf-form-input width-max"
+            ng-model="rule.filter"
+            placeholder="Name or RegExp matching column."
+            ng-blur="ctrl.autoRedraw()" />
         </div>
       </div>
       <div ng-if="rule.type === 'RANGE'">
         <div class="gf-form">
           <label class="gf-form-label width-12">Lower Bound Operator</label>
-          <select class="gf-form-input" ng-model="rule.minValueOp" ng-options="t.id as t.text for t in ctrl.getConstByName('CONTENT_RULE_MIN_VALUE_OPS')"></select>
+          <select class="gf-form-input"
+            ng-model="rule.minValueOp"
+            ng-options="t.id as t.text for t in ctrl.getConstByName('CONTENT_RULE_MIN_VALUE_OPS')"
+            ng-change="ctrl.autoRedraw()">
+          </select>
         </div>
         <div class="gf-form">
           <label class="gf-form-label width-12">Lower Bound Value</label>
-          <input type="text" class="gf-form-input width-max" ng-model="rule.minValue" placeholder="eg. 70">
+          <input type="text"
+            class="gf-form-input width-max"
+            ng-model="rule.minValue"
+            placeholder="eg. 70"
+            ng-blur="ctrl.autoRedraw()"
+          />
         </div>
         <div class="gf-form">
           <label class="gf-form-label width-12">Upper Bound Operator</label>
-          <select class="gf-form-input" ng-model="rule.maxValueOp" ng-options="t.id as t.text for t in ctrl.getConstByName('CONTENT_RULE_MAX_VALUE_OPS')"></select>
+          <select class="gf-form-input"
+            ng-model="rule.maxValueOp"
+            ng-options="t.id as t.text for t in ctrl.getConstByName('CONTENT_RULE_MAX_VALUE_OPS')"
+            ng-change="ctrl.autoRedraw()">
+          </select>
         </div>
         <div class="gf-form">
           <label class="gf-form-label width-12">Upper Bound Value</label>
-          <input type="text" class="gf-form-input width-max" ng-model="rule.exactValue" placeholder="eg. 89">
+          <input type="text"
+            class="gf-form-input width-max"
+            ng-model="rule.exactValue"
+            placeholder="eg. 89"
+            ng-blur="ctrl.autoRedraw()"
+          />
         </div>
       </div>
       <div class="gf-form">
         <gf-form-switch
-            class="gf-form"
-            label="Negate the Criteria"
-            label-class="width-12"
-            checked="rule.negateCriteria"
-           >
+          class="gf-form"
+          label="Negate the Criteria"
+          label-class="width-12"
+          checked="rule.negateCriteria"
+          on-change="ctrl.autoRedraw()">
         </gf-form-switch>
       </div>
       <div class="gf-form">
         <label class="gf-form-label width-12">Display</label>
-        <input type="text" class="gf-form-input width-max" ng-model="rule.display" placeholder="eg. Value = ${cell}">
+        <input type="text"
+          class="gf-form-input width-max"
+          ng-model="rule.display"
+          placeholder="eg. Value = ${cell}"
+          ng-blur="ctrl.autoRedraw()"
+        />
+      </div>
+      <div class="gf-form">
+        <label class="gf-form-label width-auto">Unit Format</label>
+        <div class="gf-form-dropdown-typeahead width-auto"
+          ng-model="rule.unitFormat"
+          dropdown-typeahead2="ctrl.getConstByName('UNIT_FORMATS')"
+          dropdown-typeahead-on-select="ctrl.setPanelValue(rule, 'unitFormat', $subItem.value)">
+        </div>
+      </div>
+      <div ng-if="rule.unitFormat != 'none'" class="gf-form">
+        <label class="gf-form-label width-auto">Decimals</label>
+        <input type="number"
+          class="gf-form-input width-4"
+          data-placement="right"
+          ng-model="rule.unitFormatDecimals"
+          ng-blur="ctrl.autoRedraw()"
+        />
       </div>
       <div class="gf-form">
         <gf-form-switch
-            class="gf-form"
-            label="Display Is HTML"
-            label-class="width-12"
-            checked="rule.displayIsHTML"
-           >
+          class="gf-form"
+          label="Display Is HTML"
+          label-class="width-12"
+          checked="rule.displayIsHTML"
+          on-change="ctrl.autoRedraw()">
         </gf-form-switch>
       </div>
       <div class="gf-form">
         <label class="gf-form-label width-12">Class Name(s)</label>
-        <input type="text" class="gf-form-input width-max" ng-model="rule.classNames" placeholder="eg. my-class">
+        <input type="text"
+          class="gf-form-input width-max"
+          ng-model="rule.classNames"
+          placeholder="eg. my-class"
+          ng-blur="ctrl.autoRedraw()"
+        />
       </div>
       <div class="gf-form">
         <label class="gf-form-label width-12">Class Level</label>
-        <select class="gf-form-input" ng-model="rule.classLevel" ng-options="t.id as t.text for t in ctrl.getConstByName('CONTENT_RULE_CLASS_LEVELS')"></select>
+        <select class="gf-form-input"
+          ng-model="rule.classLevel"
+          ng-options="t.id as t.text for t in ctrl.getConstByName('CONTENT_RULE_CLASS_LEVELS')"
+          ng-change="ctrl.autoRedraw()">
+        </select>
       </div>
       <div class="gf-form">
         <label class="gf-form-label width-12">Link URL</label>
-        <input type="text" class="gf-form-input width-max" ng-model="rule.url" placeholder="eg. https://example.com/">
+        <input type="text"
+          class="gf-form-input width-max"
+          ng-model="rule.url"
+          placeholder="eg. https://example.com/"
+          ng-blur="ctrl.autoRedraw()"
+        />
       </div>
       <div class="gf-form" ng-if="rule.url">
         <gf-form-switch
-            class="gf-form"
-            label="Open In New Window"
-            label-class="width-12"
-            checked="rule.openNewWindow"
-           >
+          class="gf-form"
+          label="Open In New Window"
+          label-class="width-12"
+          checked="rule.openNewWindow"
+          on-change="ctrl.autoRedraw()">
         </gf-form-switch>
       </div>
       <div class="gf-form">
-        <gf-form-switch class="gf-form" label="Show Tooltip" label-class="width-12" checked="rule.tooltip.isVisible">
+        <gf-form-switch
+          class="gf-form"
+          label="Show Tooltip"
+          label-class="width-12"
+          checked="rule.tooltip.isVisible"
+          on-change="ctrl.autoRedraw()">
         </gf-form-switch>
       </div>
       <div ng-if="rule.tooltip.isVisible">
         <div class="gf-form">
           <label class="gf-form-label width-12">Tooltip Display</label>
-          <input type="text" class="gf-form-input width-max" ng-model="rule.tooltip.display" placeholder="eg. ${cell}">
+          <input type="text"
+            class="gf-form-input width-max"
+            ng-model="rule.tooltip.display"
+            placeholder="eg. ${cell}"
+            ng-blur="ctrl.autoRedraw()"
+          />
         </div>
         <div class="gf-form">
           <label class="gf-form-label width-12">Tooltip Placement</label>
-          <select class="gf-form-input" ng-model="rule.tooltip.placement" ng-options="t.id as t.text for t in ctrl.getConstByName('TOOLTIP_PLACEMENTS')"></select>
+          <select class="gf-form-input"
+            ng-model="rule.tooltip.placement"
+            ng-options="t.id as t.text for t in ctrl.getConstByName('TOOLTIP_PLACEMENTS')"
+            ng-blur="ctrl.autoRedraw()">
+          </select>
         </div>
       </div>
 

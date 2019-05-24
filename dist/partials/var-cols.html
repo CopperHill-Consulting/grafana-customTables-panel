@@ -2,37 +2,42 @@
   <div class="gf-form">
     <label class="gf-form-label width-auto">Query</label>
     <select class="gf-form-input"
-        ng-model="ctrl.panel.varCols.dataRefId"
-        ng-options="dl.id as dl.text for dl in ctrl.dataListOptions">
+      ng-model="ctrl.panel.varCols.dataRefId"
+      ng-options="dl.id as dl.text for dl in ctrl.dataListOptions"
+      ng-change="ctrl.autoRedraw()">
     </select>
   </div>
   <div ng-if="ctrl.panel.varCols.dataRefId">
     <div class="gf-form">
       <label class="gf-form-label width-auto">Main Join Column</label>
       <select class="gf-form-input"
-          ng-model="ctrl.panel.varCols.mainJoinColumn"
-          ng-options="col.text as col.text for col in ctrl.dataList[0].columns">
+        ng-model="ctrl.panel.varCols.mainJoinColumn"
+        ng-options="col.text as col.text for col in ctrl.dataList[0].columns"
+        ng-change="ctrl.autoRedraw()">
       </select>
     </div>
     <div class="gf-form">
       <label class="gf-form-label width-auto">Join Column</label>
       <select class="gf-form-input"
-          ng-model="ctrl.panel.varCols.joinColumn"
-          ng-options="col.text as col.text for col in ctrl.getVarColColumns()">
+        ng-model="ctrl.panel.varCols.joinColumn"
+        ng-options="col.text as col.text for col in ctrl.getVarColColumns()"
+        ng-change="ctrl.autoRedraw()">
       </select>
     </div>
     <div class="gf-form">
       <label class="gf-form-label width-auto">Name Column</label>
       <select class="gf-form-input"
-          ng-model="ctrl.panel.varCols.nameColumn"
-          ng-options="col.text as col.text for col in ctrl.getVarColColumns()">
+        ng-model="ctrl.panel.varCols.nameColumn"
+        ng-options="col.text as col.text for col in ctrl.getVarColColumns()"
+        ng-change="ctrl.autoRedraw()">
       </select>
     </div>
     <div class="gf-form">
       <label class="gf-form-label width-auto">Value Column</label>
       <select class="gf-form-input"
-          ng-model="ctrl.panel.varCols.valueColumn"
-          ng-options="col.text as col.text for col in ctrl.getVarColColumns()">
+        ng-model="ctrl.panel.varCols.valueColumn"
+        ng-options="col.text as col.text for col in ctrl.getVarColColumns()"
+        ng-change="ctrl.autoRedraw()">
       </select>
     </div>
   </div>

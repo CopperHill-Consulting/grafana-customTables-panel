@@ -11,10 +11,10 @@
         </div>
         <div class="gf-form-switch">
           <input id="chkIsFullWidth"
-              type="checkbox"
-              ng-model="ctrl.panel.isFullWidth"
-              ng-blur="ctrl.drawIfChanged()"
-              class="ng-pristine ng-untouched ng-valid ng-empty" />
+            type="checkbox"
+            ng-model="ctrl.panel.isFullWidth"
+            class="ng-pristine ng-untouched ng-valid ng-empty"
+            ng-change="ctrl.autoRedraw()" />
           <span class="gf-form-switch__slider"></span>
         </div>
       </label>
@@ -23,32 +23,33 @@
   <div class="gf-form-inline">
     <div class="gf-form gf-form--grow">
       <gf-form-switch
-          class="gf-form"
-          label="Allow Ordering"
-          label-class="width-12"
-          checked="ctrl.panel.allowOrdering"
-          on-change="ctrl.drawIfChanged()">
+        class="gf-form"
+        label="Allow Ordering"
+        label-class="width-12"
+        checked="ctrl.panel.allowOrdering"
+        on-change="ctrl.autoRedraw()">
       </gf-form-switch>
     </div>
   </div>
   <div class="gf-form-inline">
     <div class="gf-form gf-form--grow">
       <gf-form-switch
-          class="gf-form"
-          label="Allow Searching"
-          label-class="width-12"
-          checked="ctrl.panel.allowSearching"
-          on-change="ctrl.drawIfChanged()">
+        class="gf-form"
+        label="Allow Searching"
+        label-class="width-12"
+        checked="ctrl.panel.allowSearching"
+        on-change="ctrl.autoRedraw()">
       </gf-form-switch>
     </div>
   </div>
   <div class="gf-form-inline">
     <div class="gf-form gf-form--grow">
       <gf-form-switch
-          class="gf-form"
-          label="Allow Length Change"
-          label-class="width-12"
-          checked="ctrl.panel.allowLengthChange">
+        class="gf-form"
+        label="Allow Length Change"
+        label-class="width-12"
+        checked="ctrl.panel.allowLengthChange"
+        on-change="ctrl.autoRedraw()">
       </gf-form-switch>
     </div>
   </div>
@@ -56,15 +57,18 @@
     <div class="gf-form">
       <label class="gf-form-label width-12">Page Lengths</label>
       <input type="text"
-          class="gf-form-input width-max"
-          ng-model="ctrl.panel.pageLengths"
-          placeholder="eg. 10,25,50,100,-1" />
+        class="gf-form-input width-max"
+        ng-model="ctrl.panel.pageLengths"
+        placeholder="eg. 10,25,50,100,-1"
+        ng-blur="ctrl.autoRedraw()"
+      />
     </div>
     <div class="gf-form">
       <label class="gf-form-label width-12">Initial Page Length</label>
       <select class="gf-form-input"
-          ng-model="ctrl.panel.initialPageLength"
-          ng-options="opt.value as opt.text for opt in ctrl.pageLengthOptions">
+        ng-model="ctrl.panel.initialPageLength"
+        ng-options="opt.value as opt.text for opt in ctrl.pageLengthOptions"
+        ng-change="ctrl.autoRedraw()">
       </select>
     </div>
   </div>

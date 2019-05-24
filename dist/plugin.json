@@ -17,12 +17,12 @@
     "links": [
       {"name": "Project site", "url": "https://github.com/CopperHill-Consulting/grafana-customTables-panel.git"}
     ],
-    "version": "0.0.1",
-    "updated": "2019-04-08"
+    "version": "0.1.0",
+    "updated": "2019-05-24"
   },
 
   "dependencies": {
-    "grafanaVersion": "4.6",
+    "grafanaVersion": "6.x.x",
     "plugins": [ ]
   }
 }

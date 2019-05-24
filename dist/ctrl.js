@@ -7,6 +7,8 @@ exports.DataTablePanelCtrl = void 0;
 
 var _sdk = require("app/plugins/sdk");
 
+var _ui = require("@grafana/ui");
+
 var _lodash = _interopRequireDefault(require("lodash"));
 
 var JS = _interopRequireWildcard(require("./external/YourJS.min"));
@@ -45,6 +47,7 @@ function _setPrototypeOf(o, p) { _setPrototypeOf = Object.setPrototypeOf || func
 
 var RGX_SIMPLE_NUMBER = /^\d+(\.\d+)?$/;
 var DEFAULT_PSEUDO_CSS = "\n.theme-dark & {\n  color: white;\n}\ntable.dataTable tbody tr {\n  &:hover td {\n    background-image: linear-gradient(0deg, rgba(128,128,128,0.1), rgba(128,128,128,0.1));\n  }\n  &, &.even, &.odd {\n    background-color: transparent;\n    td {\n      border-color: transparent;\n    }\n  }\n  &.odd {\n    background-color: rgba(128,128,128,0.3);\n  }\n  &.even {\n    background-color: rgba(128,128,128,0.15);\n  }\n}\n";
+var UNIT_FORMATS = (0, _ui.getValueFormats)();
 var TOOLTIP_PLACEMENTS = [{
   "id": "TOP",
   "text": "Top"
@@ -106,6 +109,7 @@ var DEFAULT_PANEL_SETTINGS = {
   allowLengthChange: true,
   allowOrdering: true,
   allowSearching: true,
+  allowRedrawOnModify: true,
   columnDefs: [],
   initialPageLength: 25,
   isFullWidth: true,
@@ -131,7 +135,11 @@ function (_MetricsPanelCtrl) {
     _classCallCheck(this, DataTablePanelCtrl);
 
     _this = _possibleConstructorReturn(this, _getPrototypeOf(DataTablePanelCtrl).call(this, $scope, $injector));
-    _this.$rootScope = $rootScope;
+    _this.$rootScope = $rootScope; // Make sure old versions have this value set to false.
+
+    if (!_lodash.default.has(_this.panel, 'allowRedrawOnModify')) {
+      _this.panel.allowRedrawOnModify = false;
+    }
 
     _lodash.default.defaultsDeep(_this.panel, DEFAULT_PANEL_SETTINGS);
 
@@ -272,6 +280,8 @@ function (_MetricsPanelCtrl) {
         negateCriteria: false,
         display: '${value}',
         displayIsHTML: false,
+        unitFormat: 'none',
+        unitFormatDecimals: 0,
         minValue: null,
         maxValue: null,
         minValueOp: null,
@@ -518,7 +528,10 @@ function (_MetricsPanelCtrl) {
                   ruleType: rule.type,
                   rgx: colDefContentRuleFilter,
                   ctrl: ctrl,
-                  varsByName: varsByName
+                  varsByName: varsByName,
+                  getValueFormat: _ui.getValueFormat,
+                  unitFormat: rule.unitFormat,
+                  unitFormatDecimals: rule.unitFormatDecimals
                 };
 
                 if (type === 'FILTER') {
@@ -792,7 +805,10 @@ function (_MetricsPanelCtrl) {
               ruleType: 'FILTER',
               rgx: colDefRgx,
               ctrl: ctrl,
-              varsByName: varsByName
+              varsByName: varsByName,
+              getValueFormat: _ui.getValueFormat,
+              unitFormat: null,
+              unitFormatDecimals: null
             };
             column.text = (0, _helperFunctions.getCellValue)(colDef.display, false, gcvOptions);
             var html = colDef.displayIsHTML ? column.text : _lodash.default.escape(column.text);
@@ -889,6 +905,13 @@ function (_MetricsPanelCtrl) {
       }
     }
   }, {
+    key: "setPanelValue",
+    value: function setPanelValue(rootVar, path, value) {
+      _lodash.default.set(rootVar, path, value);
+
+      this.autoRedraw();
+    }
+  }, {
     key: "link",
     value: function link(scope, elem, attrs, ctrl) {
       this.element = elem;
@@ -901,5 +924,10 @@ function (_MetricsPanelCtrl) {
 }(_sdk.MetricsPanelCtrl);
 
 exports.DataTablePanelCtrl = DataTablePanelCtrl;
+DataTablePanelCtrl.prototype.autoRedraw = _lodash.default.debounce(function () {
+  if (this.panel.allowRedrawOnModify) {
+    this.drawIfChanged.apply(this, arguments);
+  }
+}, 500);
 DataTablePanelCtrl.templateUrl = 'partials/module.html';
 //# sourceMappingURL=ctrl.js.map
