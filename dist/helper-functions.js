@@ -9,6 +9,7 @@ function _iterableToArray(iter) { if (Symbol.iterator in Object(iter) || Object.
 function _arrayWithoutHoles(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = new Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } }
 
 var RGX_CELL_PLACEHOLDER = /\$\{(time)(?:-(to|from))?\}|\$\{(?:(value|cell|0|[1-9]\d*)|(col|var):((?:[^\}:\\]*|\\.)+))(?::(?:(raw)|(escape)|(param)(?::((?:[^\}:\\]*|\\.)+))?))?\}/g;
+var RGX_OLD_VAR_WORKAROUND = /([\?&])var-(\$\{var:(?:[^\}:\\]*|\\.)+:param\})/g;
 var RGX_ESCAPED_CHARS = /\\(.)/g; //
 
 /**
@@ -86,7 +87,7 @@ function getCellValue(valToMod, isForLink, _ref) {
   };
   var timeVars = ctrl.timeSrv.time;
   matches.value = /^dateTime/.test(unitFormat) ? getValueFormat(unitFormat)(new Date(cell)) : matches.cell = !['none', null, void 0].includes(unitFormat) && 'number' === typeof cell ? getValueFormat(unitFormat)(cell, unitFormatDecimals, null) : cell;
-  return valToMod.replace(RGX_CELL_PLACEHOLDER, function (match0, isTime, opt_timePart, matchesKey, isColOrVar, name, isRaw, isEscape, isParam, paramName) {
+  return valToMod.replace(RGX_OLD_VAR_WORKAROUND, '$1$2').replace(RGX_CELL_PLACEHOLDER, function (match0, isTime, opt_timePart, matchesKey, isColOrVar, name, isRaw, isEscape, isParam, paramName) {
     if (isTime) {
       return (opt_timePart != 'to' ? 'from=' + encodeURIComponent(timeVars.from) : '') + (opt_timePart ? '' : '&') + (opt_timePart != 'from' ? 'to=' + encodeURIComponent(timeVars.to) : '');
     }
@@ -97,7 +98,7 @@ function getCellValue(valToMod, isForLink, _ref) {
     var result = _toConsumableArray(new Set(matchesKey ? _.has(matches, matchesKey) ? [matches[matchesKey]] : [] : isColOrVar === 'col' ? _.has(cellsByColName, name) ? [cellsByColName[name]] : [] : _.has(varsByName, name) ? varsByName[name] : []));
 
     return result.length < 1 ? match0 : isRaw ? result.join(',') : isParam ? result.map(function (v) {
-      return encodeURIComponent(paramName == undefined ? name : paramName) + '=' + encodeURIComponent(v);
+      return encodeURIComponent(paramName == undefined ? isColOrVar === 'var' ? "var-".concat(name) : name : paramName) + '=' + encodeURIComponent(v);
     }).join('&') : encodeURIComponent(result.join(','));
   });
 }

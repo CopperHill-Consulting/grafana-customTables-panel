@@ -1,4 +1,5 @@
 const RGX_CELL_PLACEHOLDER = /\$\{(time)(?:-(to|from))?\}|\$\{(?:(value|cell|0|[1-9]\d*)|(col|var):((?:[^\}:\\]*|\\.)+))(?::(?:(raw)|(escape)|(param)(?::((?:[^\}:\\]*|\\.)+))?))?\}/g;
+const RGX_OLD_VAR_WORKAROUND = /([\?&])var-(\$\{var:(?:[^\}:\\]*|\\.)+:param\})/g;
 const RGX_ESCAPED_CHARS = /\\(.)/g;
 //
 
@@ -89,7 +90,7 @@ function getCellValue(valToMod, isForLink, { cell, cellsByColName, ruleType, rgx
         ? getValueFormat(unitFormat)(cell, unitFormatDecimals, null)
         : cell;
 
-  return valToMod.replace(
+  return valToMod.replace(RGX_OLD_VAR_WORKAROUND, '$1$2').replace(
     RGX_CELL_PLACEHOLDER,
     function (match0, isTime, opt_timePart, matchesKey, isColOrVar, name, isRaw, isEscape, isParam, paramName) {
       if (isTime) {
@@ -114,7 +115,7 @@ function getCellValue(valToMod, isForLink, { cell, cellsByColName, ruleType, rgx
         : isRaw
           ? result.join(',')
           : isParam
-            ? result.map(v => encodeURIComponent(paramName == undefined ? name : paramName) + '=' + encodeURIComponent(v)).join('&')
+            ? result.map(v => encodeURIComponent(paramName == undefined ? isColOrVar === 'var' ? `var-${name}` : name : paramName) + '=' + encodeURIComponent(v)).join('&')
             : encodeURIComponent(result.join(','));
     }
   );
