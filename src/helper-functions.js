@@ -1,7 +1,8 @@
+import { getValueFormat } from './format-values';
+
 const RGX_CELL_PLACEHOLDER = /\$\{(time)(?:-(to|from))?\}|\$\{(?:(value|cell|0|[1-9]\d*)|(col|var):((?:[^\}:\\]*|\\.)+))(?::(?:(raw)|(escape)|(param)(?::((?:[^\}:\\]*|\\.)+))?))?\}/g;
 const RGX_OLD_VAR_WORKAROUND = /([\?&])var-(\$\{var:(?:[^\}:\\]*|\\.)+:param\})/g;
 const RGX_ESCAPED_CHARS = /\\(.)/g;
-//
 
 /**
  * Converts an array of arrays of values to a CSV string.
@@ -74,7 +75,7 @@ function pseudoCssToJSON(strLess) {
   }
 }
 
-function getCellValue(valToMod, isForLink, { cell, cellsByColName, ruleType, rgx, ctrl, varsByName, getValueFormat, unitFormat, unitFormatDecimals }) {
+function getCellValue(valToMod, isForLink, { cell, cellsByColName, ruleType, rgx, ctrl, varsByName, unitFormat, unitFormatDecimals, unitFormatString }) {
   let matches = ruleType === 'FILTER'
     ? cell != null
       ? rgx.exec(cell + '')
@@ -85,7 +86,7 @@ function getCellValue(valToMod, isForLink, { cell, cellsByColName, ruleType, rgx
 
   matches.value = 
     /^dateTime/.test(unitFormat)
-      ? getValueFormat(unitFormat)(new Date(cell))
+      ? getValueFormat(unitFormat)(new Date(cell), unitFormatString)
       : matches.cell = (!['none', null, void 0].includes(unitFormat) && 'number' === typeof cell)
         ? getValueFormat(unitFormat)(cell, unitFormatDecimals, null)
         : cell;

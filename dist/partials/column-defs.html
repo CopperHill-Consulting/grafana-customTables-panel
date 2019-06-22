@@ -174,17 +174,27 @@
         />
       </div>
       <div class="gf-form">
-        <label class="gf-form-label width-auto">Unit Format</label>
+        <label class="gf-form-label width-12">Unit Format</label>
         <div class="gf-form-dropdown-typeahead width-auto"
           ng-model="rule.unitFormat"
           dropdown-typeahead2="ctrl.getConstByName('UNIT_FORMATS')"
           dropdown-typeahead-on-select="ctrl.setPanelValue(rule, 'unitFormat', $subItem.value)">
         </div>
       </div>
-      <div ng-if="rule.unitFormat != 'none'" class="gf-form">
-        <label class="gf-form-label width-auto">Decimals</label>
+      <div ng-if="rule.unitFormat === 'dateTimeYourJS'" class="gf-form">
+        <label class="gf-form-label width-12">Date Format</label>
+        <input type="text"
+          placeholder="eg. DDD, MMM D, YYYY 'at' h:mmA"
+          class="gf-form-input width-max"
+          data-placement="right"
+          ng-model="rule.unitFormatString"
+          ng-blur="ctrl.autoRedraw()"
+        />
+      </div>
+      <div ng-if="(rule.unitFormat || 'none') != 'none' && rule.unitFormat.indexOf('dateTime') != 0" class="gf-form">
+        <label class="gf-form-label width-12">Decimals</label>
         <input type="number"
-          class="gf-form-input width-4"
+          class="gf-form-input width-max"
           data-placement="right"
           ng-model="rule.unitFormatDecimals"
           ng-blur="ctrl.autoRedraw()"

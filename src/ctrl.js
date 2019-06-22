@@ -1,5 +1,5 @@
 import { MetricsPanelCtrl } from 'app/plugins/sdk';
-import { getValueFormat, getValueFormats } from '@grafana/ui';
+import { getValueFormats } from './format-values';
 import _ from 'lodash';
 import * as JS from './external/YourJS.min';
 import {
@@ -217,6 +217,7 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
       displayIsHTML: false,
       unitFormat: 'none',
       unitFormatDecimals: 0,
+      unitFormatString: '',
       minValue: null,
       maxValue: null,
       minValueOp: null,
@@ -445,8 +446,8 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
                 rgx: colDefContentRuleFilter,
                 ctrl,
                 varsByName,
-                getValueFormat,
                 unitFormat: rule.unitFormat,
+                unitFormatString: rule.unitFormatString,
                 unitFormatDecimals: rule.unitFormatDecimals
               };
               if (type === 'FILTER') {
@@ -683,7 +684,6 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
             rgx: colDefRgx,
             ctrl,
             varsByName,
-            getValueFormat,
             unitFormat: null,
             unitFormatDecimals: null
           };

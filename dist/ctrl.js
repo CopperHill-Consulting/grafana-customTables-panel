@@ -7,7 +7,7 @@ exports.DataTablePanelCtrl = void 0;
 
 var _sdk = require("app/plugins/sdk");
 
-var _ui = require("@grafana/ui");
+var _formatValues = require("./format-values");
 
 var _lodash = _interopRequireDefault(require("lodash"));
 
@@ -47,7 +47,7 @@ function _setPrototypeOf(o, p) { _setPrototypeOf = Object.setPrototypeOf || func
 
 var RGX_SIMPLE_NUMBER = /^\d+(\.\d+)?$/;
 var DEFAULT_PSEUDO_CSS = "\n.theme-dark & {\n  color: white;\n}\ntable.dataTable tbody tr {\n  &:hover td {\n    background-image: linear-gradient(0deg, rgba(128,128,128,0.1), rgba(128,128,128,0.1));\n  }\n  &, &.even, &.odd {\n    background-color: transparent;\n    td {\n      border-color: transparent;\n    }\n  }\n  &.odd {\n    background-color: rgba(128,128,128,0.3);\n  }\n  &.even {\n    background-color: rgba(128,128,128,0.15);\n  }\n}\n";
-var UNIT_FORMATS = (0, _ui.getValueFormats)();
+var UNIT_FORMATS = (0, _formatValues.getValueFormats)();
 var TOOLTIP_PLACEMENTS = [{
   "id": "TOP",
   "text": "Top"
@@ -282,6 +282,7 @@ function (_MetricsPanelCtrl) {
         displayIsHTML: false,
         unitFormat: 'none',
         unitFormatDecimals: 0,
+        unitFormatString: '',
         minValue: null,
         maxValue: null,
         minValueOp: null,
@@ -529,8 +530,8 @@ function (_MetricsPanelCtrl) {
                   rgx: colDefContentRuleFilter,
                   ctrl: ctrl,
                   varsByName: varsByName,
-                  getValueFormat: _ui.getValueFormat,
                   unitFormat: rule.unitFormat,
+                  unitFormatString: rule.unitFormatString,
                   unitFormatDecimals: rule.unitFormatDecimals
                 };
 
@@ -806,7 +807,6 @@ function (_MetricsPanelCtrl) {
               rgx: colDefRgx,
               ctrl: ctrl,
               varsByName: varsByName,
-              getValueFormat: _ui.getValueFormat,
               unitFormat: null,
               unitFormatDecimals: null
             };
