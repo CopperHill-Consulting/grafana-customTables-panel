@@ -442,6 +442,8 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
               let gcvOptions = {
                 cell: cell.html,
                 cellsByColName,
+                joinValues: row.joinValues,
+                colIndex,
                 ruleType: rule.type,
                 rgx: colDefContentRuleFilter,
                 ctrl,
@@ -574,38 +576,41 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
           vcRows
             // Get a list of all of the new headers while simultaneously adding
             // the data to the appropriate rows and in the appropriate columns.
-            .reduce((vcHeaders, vcRow) => {
+            .reduce((vcAddedHeaders, vcRow) => {
               let vcHeader = vcRow[nameColIndex];
               let vcJoinValue = vcRow[joinColIndex];
-              let colIndex = vcHeaders.indexOf(vcHeader);
+              let colIndex = vcAddedHeaders.indexOf(vcHeader);
               let isNewVCHeader = colIndex < 0;
 
               // If the new column wasn't found add it.
               if (isNewVCHeader) {
-                colIndex = vcHeaders.push(vcHeader) - 1;
+                colIndex = vcAddedHeaders.push(vcHeader) - 1;
               }
 
               // Since everything is ordered continue in `rows` looking for the
               // join and if found add the value there while setting the new row's
               // index as `mainRowIndex`.
-              for (let mainRow, i = mainRowIndex; i < MAIN_ROW_COUNT; i++) {
+              for (let isChanged, mainRow, i = mainRowIndex; i < MAIN_ROW_COUNT; i++) {
                 mainRow = rows[i];
                 if (vcJoinValue === mainRow[mainJoinColIndex]) {
                   mainRow[MAIN_COL_COUNT + colIndex] = vcRow[valueColIndex];
+                  (mainRow.joinValues = mainRow.joinValues || [])[MAIN_COL_COUNT + colIndex] = _.zipObject(vcHeaders, vcRow);
                   mainRowIndex = i;
-
+                  isChanged = true;
+                }
+                else if (isChanged) {
                   // NOTE:  Return here to avoid checking `i` outside of loop.
-                  return vcHeaders;
+                  return vcAddedHeaders;
                 }
               }
 
               // If new header was added but join was unsuccessful remove the new
               // header.
               if (isNewVCHeader) {
-                vcHeaders.pop();
+                vcAddedHeaders.pop();
               }
 
-              return vcHeaders;
+              return vcAddedHeaders;
             }, [])
             // Add the new `columns`.
             .forEach((vcHeader, vcHeaderIndex) => {

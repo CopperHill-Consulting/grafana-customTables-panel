@@ -10,7 +10,7 @@ function _iterableToArray(iter) { if (Symbol.iterator in Object(iter) || Object.
 
 function _arrayWithoutHoles(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = new Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } }
 
-var RGX_CELL_PLACEHOLDER = /\$\{(time)(?:-(to|from))?\}|\$\{(?:(value|cell|0|[1-9]\d*)|(col|var):((?:[^\}:\\]*|\\.)+))(?::(?:(raw)|(escape)|(param)(?::((?:[^\}:\\]*|\\.)+))?))?\}/g;
+var RGX_CELL_PLACEHOLDER = /\$\{(time)(?:-(to|from))?\}|\$\{(?:(value|cell|0|[1-9]\d*)|(col|join-col|var):((?:[^\}:\\]*|\\.)+))(?::(?:(raw)|(escape)|(param)(?::((?:[^\}:\\]*|\\.)+))?))?\}/g;
 var RGX_OLD_VAR_WORKAROUND = /([\?&])var-(\$\{var:(?:[^\}:\\]*|\\.)+:param\})/g;
 var RGX_ESCAPED_CHARS = /\\(.)/g;
 /**
@@ -74,6 +74,8 @@ function pseudoCssToJSON(strLess) {
 function getCellValue(valToMod, isForLink, _ref) {
   var cell = _ref.cell,
       cellsByColName = _ref.cellsByColName,
+      joinValues = _ref.joinValues,
+      colIndex = _ref.colIndex,
       ruleType = _ref.ruleType,
       rgx = _ref.rgx,
       ctrl = _ref.ctrl,
@@ -96,7 +98,7 @@ function getCellValue(valToMod, isForLink, _ref) {
     isRaw = isRaw || !(isForLink || isEscape);
     name = matchesKey || name && name.replace(RGX_ESCAPED_CHARS, '$1');
 
-    var result = _toConsumableArray(new Set(matchesKey ? _.has(matches, matchesKey) ? [matches[matchesKey]] : [] : isColOrVar === 'col' ? _.has(cellsByColName, name) ? [cellsByColName[name]] : [] : _.has(varsByName, name) ? varsByName[name] : []));
+    var result = _toConsumableArray(new Set(matchesKey ? _.has(matches, matchesKey) ? [matches[matchesKey]] : [] : isColOrVar === 'col' ? _.has(cellsByColName, name) ? [cellsByColName[name]] : [] : isColOrVar === 'join-col' ? joinValues && _.has(joinValues[colIndex], name) ? [joinValues[colIndex][name]] : [] : _.has(varsByName, name) ? varsByName[name] : []));
 
     return result.length < 1 ? match0 : isRaw ? result.join(',') : isParam ? result.map(function (v) {
       return encodeURIComponent(paramName == undefined ? isColOrVar === 'var' ? "var-".concat(name) : name : paramName) + '=' + encodeURIComponent(v);

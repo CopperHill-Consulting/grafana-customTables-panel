@@ -1,6 +1,6 @@
 import { getValueFormat } from './format-values';
 
-const RGX_CELL_PLACEHOLDER = /\$\{(time)(?:-(to|from))?\}|\$\{(?:(value|cell|0|[1-9]\d*)|(col|var):((?:[^\}:\\]*|\\.)+))(?::(?:(raw)|(escape)|(param)(?::((?:[^\}:\\]*|\\.)+))?))?\}/g;
+const RGX_CELL_PLACEHOLDER = /\$\{(time)(?:-(to|from))?\}|\$\{(?:(value|cell|0|[1-9]\d*)|(col|join-col|var):((?:[^\}:\\]*|\\.)+))(?::(?:(raw)|(escape)|(param)(?::((?:[^\}:\\]*|\\.)+))?))?\}/g;
 const RGX_OLD_VAR_WORKAROUND = /([\?&])var-(\$\{var:(?:[^\}:\\]*|\\.)+:param\})/g;
 const RGX_ESCAPED_CHARS = /\\(.)/g;
 
@@ -75,7 +75,7 @@ function pseudoCssToJSON(strLess) {
   }
 }
 
-function getCellValue(valToMod, isForLink, { cell, cellsByColName, ruleType, rgx, ctrl, varsByName, unitFormat, unitFormatDecimals, unitFormatString }) {
+function getCellValue(valToMod, isForLink, { cell, cellsByColName, joinValues, colIndex, ruleType, rgx, ctrl, varsByName, unitFormat, unitFormatDecimals, unitFormatString }) {
   let matches = ruleType === 'FILTER'
     ? cell != null
       ? rgx.exec(cell + '')
@@ -108,7 +108,9 @@ function getCellValue(valToMod, isForLink, { cell, cellsByColName, ruleType, rgx
           ? _.has(matches, matchesKey) ? [matches[matchesKey]] : []
           : isColOrVar === 'col'
             ? _.has(cellsByColName, name) ? [cellsByColName[name]] : []
-            : _.has(varsByName, name) ? varsByName[name] : []
+            : isColOrVar === 'join-col'
+              ? (joinValues && _.has(joinValues[colIndex], name)) ? [joinValues[colIndex][name]] : []
+              : _.has(varsByName, name) ? varsByName[name] : []
       )];
 
       return result.length < 1
