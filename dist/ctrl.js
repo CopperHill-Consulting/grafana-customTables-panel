@@ -46,7 +46,7 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 function _setPrototypeOf(o, p) { _setPrototypeOf = Object.setPrototypeOf || function _setPrototypeOf(o, p) { o.__proto__ = p; return o; }; return _setPrototypeOf(o, p); }
 
 var RGX_SIMPLE_NUMBER = /^\d+(\.\d+)?$/;
-var DEFAULT_PSEUDO_CSS = "\n.theme-dark & {\n  color: white;\n}\ntable.dataTable tbody tr {\n  &:hover td {\n    background-image: linear-gradient(0deg, rgba(128,128,128,0.1), rgba(128,128,128,0.1));\n  }\n  &, &.even, &.odd {\n    background-color: transparent;\n    td {\n      border-color: transparent;\n    }\n  }\n  &.odd {\n    background-color: rgba(128,128,128,0.3);\n  }\n  &.even {\n    background-color: rgba(128,128,128,0.15);\n  }\n}\n";
+var DEFAULT_PSEUDO_CSS = "\n.theme-dark & {\n  color: white;\n  \n  .dataTables_filter input[type=search] {\n    border: 1px solid #262628;\n  }\n}\n.dataTables_filter input[type=search] {\n  border: 1px solid #dde4ed;\n  height: 35px;\n  line-height: 35px;\n  border-radius: 5px;\n  padding: 0 8px;\n}\ntable.dataTable tbody tr {\n  &:hover td {\n    background-image: linear-gradient(0deg, rgba(128,128,128,0.1), rgba(128,128,128,0.1));\n  }\n  &, &.even, &.odd {\n    background-color: transparent;\n    td {\n      border-color: transparent;\n    }\n  }\n  &.odd {\n    background-color: rgba(128,128,128,0.3);\n  }\n  &.even {\n    background-color: rgba(128,128,128,0.15);\n  }\n}\n";
 var UNIT_FORMATS = (0, _formatValues.getValueFormats)();
 var TOOLTIP_PLACEMENTS = [{
   "id": "TOP",
@@ -110,6 +110,7 @@ var DEFAULT_PANEL_SETTINGS = {
   allowOrdering: true,
   allowSearching: true,
   allowRedrawOnModify: true,
+  allowPaging: true,
   columnDefs: [],
   initialPageLength: 25,
   isFullWidth: true,
@@ -262,6 +263,18 @@ function (_MetricsPanelCtrl) {
         isSearchable: true,
         contentRules: []
       });
+    }
+  }, {
+    key: "moveColumnDef",
+    value: function moveColumnDef(columnDef, offset) {
+      var columnDefs = this.panel.columnDefs;
+      var colDefIndex = columnDefs.indexOf(columnDef);
+      var newColDefIndex = colDefIndex + offset;
+
+      if (0 <= newColDefIndex && newColDefIndex < columnDefs.length) {
+        columnDefs.splice(colDefIndex, 1);
+        columnDefs.splice(newColDefIndex, 0, columnDef);
+      }
     }
   }, {
     key: "removeColumnDef",
@@ -459,6 +472,8 @@ function (_MetricsPanelCtrl) {
         },
         scrollY: height,
         scrollX: true,
+        deferRender: true,
+        paging: panel.allowPaging,
         scrollCollapse: true,
         ordering: panel.allowOrdering,
         searching: panel.allowSearching,
@@ -469,7 +484,7 @@ function (_MetricsPanelCtrl) {
         pageLength: panel.initialPageLength,
         order: []
       };
-      var dataTable = jTable.DataTable(dataTableOpts); // Horizontally center tables that are not full page width.
+      ctrl.dataTable = jTable.DataTable(dataTableOpts); // Horizontally center tables that are not full page width.
 
       jElem.find('.dataTables_scrollHeadInner').css('margin', '0 auto'); // Resize the scroll body of the table.
 
@@ -854,6 +869,11 @@ function (_MetricsPanelCtrl) {
         var scrollHeight = jScrollBody.height();
         var nonScrollHeight = wrapHeight - scrollHeight;
         jScrollBody.css('max-height', fullHeight - nonScrollHeight);
+      } // Make sure the column headers get resized
+
+
+      if (this.dataTable) {
+        this.dataTable.columns().draw();
       }
     }
   }, {

@@ -24,7 +24,7 @@
     <div class="gf-form gf-form--grow">
       <gf-form-switch
         class="gf-form"
-        label="Allow Ordering"
+        label="Allow Sorting"
         label-class="width-12"
         checked="ctrl.panel.allowOrdering"
         on-change="ctrl.autoRedraw()">
@@ -46,30 +46,43 @@
     <div class="gf-form gf-form--grow">
       <gf-form-switch
         class="gf-form"
-        label="Allow Length Change"
+        label="Allow Pagination"
         label-class="width-12"
-        checked="ctrl.panel.allowLengthChange"
+        checked="ctrl.panel.allowPaging"
         on-change="ctrl.autoRedraw()">
       </gf-form-switch>
     </div>
   </div>
-  <div ng-if="ctrl.panel.allowLengthChange">
-    <div class="gf-form">
-      <label class="gf-form-label width-12">Page Lengths</label>
-      <input type="text"
-        class="gf-form-input width-max"
-        ng-model="ctrl.panel.pageLengths"
-        placeholder="eg. 10,25,50,100,-1"
-        ng-blur="ctrl.autoRedraw()"
-      />
+  <div ng-if="ctrl.panel.allowPaging">
+    <div class="gf-form-inline">
+      <div class="gf-form gf-form--grow">
+        <gf-form-switch
+          class="gf-form"
+          label="Allow Length Change"
+          label-class="width-12"
+          checked="ctrl.panel.allowLengthChange"
+          on-change="ctrl.autoRedraw()">
+        </gf-form-switch>
+      </div>
     </div>
-    <div class="gf-form">
-      <label class="gf-form-label width-12">Initial Page Length</label>
-      <select class="gf-form-input"
-        ng-model="ctrl.panel.initialPageLength"
-        ng-options="opt.value as opt.text for opt in ctrl.pageLengthOptions"
-        ng-change="ctrl.autoRedraw()">
-      </select>
+    <div ng-if="ctrl.panel.allowLengthChange">
+      <div class="gf-form">
+        <label class="gf-form-label width-12">Page Lengths</label>
+        <input type="text"
+          class="gf-form-input width-max"
+          ng-model="ctrl.panel.pageLengths"
+          placeholder="eg. 10,25,50,100,-1"
+          ng-blur="ctrl.autoRedraw()"
+        />
+      </div>
+      <div class="gf-form">
+        <label class="gf-form-label width-12">Initial Page Length</label>
+        <select class="gf-form-input"
+          ng-model="ctrl.panel.initialPageLength"
+          ng-options="opt.value as opt.text for opt in ctrl.pageLengthOptions"
+          ng-change="ctrl.autoRedraw()">
+        </select>
+      </div>
     </div>
   </div>
 </div>

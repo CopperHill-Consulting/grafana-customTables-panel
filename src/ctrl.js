@@ -19,6 +19,17 @@ const RGX_SIMPLE_NUMBER = /^\d+(\.\d+)?$/;
 const DEFAULT_PSEUDO_CSS = `
 .theme-dark & {
   color: white;
+  
+  .dataTables_filter input[type=search] {
+    border: 1px solid #262628;
+  }
+}
+.dataTables_filter input[type=search] {
+  border: 1px solid #dde4ed;
+  height: 35px;
+  line-height: 35px;
+  border-radius: 5px;
+  padding: 0 8px;
 }
 table.dataTable tbody tr {
   &:hover td {
@@ -81,6 +92,7 @@ const DEFAULT_PANEL_SETTINGS = {
   allowOrdering: true,
   allowSearching: true,
   allowRedrawOnModify: true,
+  allowPaging: true,
   columnDefs: [],
   initialPageLength: 25,
   isFullWidth: true,
@@ -199,6 +211,16 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
       isSearchable: true,
       contentRules: []
     });
+  }
+
+  moveColumnDef(columnDef, offset) {
+    let columnDefs = this.panel.columnDefs;
+    let colDefIndex = columnDefs.indexOf(columnDef);
+    let newColDefIndex = colDefIndex + offset;
+    if (0 <= newColDefIndex && newColDefIndex < columnDefs.length) {
+      columnDefs.splice(colDefIndex, 1);
+      columnDefs.splice(newColDefIndex, 0, columnDef);
+    }
   }
 
   removeColumnDef(columnDef) {
@@ -377,6 +399,8 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
       },
       scrollY: height,
       scrollX: true,
+      deferRender: true,
+      paging: panel.allowPaging,
       scrollCollapse: true,
       ordering: panel.allowOrdering,
       searching: panel.allowSearching,
@@ -391,7 +415,7 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
       pageLength: panel.initialPageLength,
       order: []
     };
-    let dataTable = jTable.DataTable(dataTableOpts);
+    ctrl.dataTable = jTable.DataTable(dataTableOpts);
 
     // Horizontally center tables that are not full page width.
     jElem.find('.dataTables_scrollHeadInner').css('margin', '0 auto');
@@ -731,6 +755,11 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
       let scrollHeight = jScrollBody.height();
       let nonScrollHeight = wrapHeight - scrollHeight;
       jScrollBody.css('max-height', fullHeight - nonScrollHeight);
+    }
+
+    // Make sure the column headers get resized
+    if (this.dataTable) {
+      this.dataTable.columns().draw();
     }
   }
 

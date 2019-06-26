@@ -54,7 +54,7 @@
     </gf-form-switch>
   </div>
   <div ng-if="cd.isVisible">
-    <div class="gf-form">
+    <div ng-if="ctrl.panel.allowSearching" class="gf-form">
       <gf-form-switch
         class="gf-form"
         label="Is Searchable"
@@ -63,7 +63,7 @@
         on-change="ctrl.autoRedraw()">
       </gf-form-switch>
     </div>
-    <div class="gf-form">
+    <div ng-if="ctrl.panel.allowOrdering" class="gf-form">
       <gf-form-switch class="gf-form"
         label="Is Sortable"
         label-class="width-12"
@@ -292,6 +292,12 @@
   </div>
 
   <div class="gf-form-button-row">
+    <button class="btn btn-secondary btn-small" ng-click="ctrl.moveColumnDef(cd, -1)">
+      <i class="fa fa-arrow-up"></i>
+    </button>
+    <button class="btn btn-secondary btn-small" ng-click="ctrl.moveColumnDef(cd, 1)">
+      <i class="fa fa-arrow-down"></i>
+    </button>
     <button class="btn btn-danger btn-small" ng-click="ctrl.removeColumnDef(cd)">
       <i class="fa fa-trash"></i>
       Remove Column Definition
