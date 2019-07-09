@@ -1,5 +1,9 @@
 # Changelog
 
+- **v0.3.0**
+  - Added timezone offset capabilities.
+  - Make sure that the move up and move down buttons for column definitions only show when applicable.
+
 - **v0.2.0**
   - Added custom date formatting
   - Added ${join-col:...} syntax to reference join data on a cell-by-cell basis
