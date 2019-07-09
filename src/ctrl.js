@@ -70,16 +70,22 @@ const CONTENT_RULE_CLASS_LEVELS = [
   { id: 'ROW', text: 'Entire row' }
 ];
 
+const TZ_OFFSET_TYPES = [
+  { id: null, text: 'Default' },
+  { id: 'NO-TIMEZONE', text: 'Local Timezone' },
+  { id: 'TIMEZONE', text: 'Specify Minute Offset' }
+];
+
 const CONTENT_RULE_MAX_VALUE_OPS = [
   { id: '', text: '' },
-  { id: '>=', text: '\u2265 (greater than or equal to)' },
-  { id: '>', text: '> (greater than)' }
+  { id: '>=', text: 'value \u2265 cell (greater than or equal to)' },
+  { id: '>', text: 'value > cell (greater than)' }
 ];
 
 const CONTENT_RULE_MIN_VALUE_OPS = [
   { id: '', text: '' },
-  { id: '<', text: '< (less than)' },
-  { id: '<=', text: '\u2264 (less than or equal to)' }
+  { id: '<', text: 'value < cell (less than)' },
+  { id: '<=', text: 'value \u2264 cell (less than or equal to)' }
 ];
 
 const CONTENT_RULE_EXACT_NUM_OPS = [
@@ -240,6 +246,8 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
       unitFormat: 'none',
       unitFormatDecimals: 0,
       unitFormatString: '',
+      tzOffsetType: null,
+      tzOffset: 0,
       minValue: null,
       maxValue: null,
       minValueOp: null,
@@ -468,13 +476,10 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
                 cellsByColName,
                 joinValues: row.joinValues,
                 colIndex,
-                ruleType: rule.type,
+                rule,
                 rgx: colDefContentRuleFilter,
                 ctrl,
-                varsByName,
-                unitFormat: rule.unitFormat,
-                unitFormatString: rule.unitFormatString,
-                unitFormatDecimals: rule.unitFormatDecimals
+                varsByName
               };
               if (type === 'FILTER') {
                 isMatch = colDefContentRuleFilter.test(cell.html);
@@ -709,12 +714,10 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
           let gcvOptions = {
             cell: column.text,
             cellsByColName: {},
-            ruleType: 'FILTER',
+            rule: { type: 'FILTER' },
             rgx: colDefRgx,
             ctrl,
-            varsByName,
-            unitFormat: null,
-            unitFormatDecimals: null
+            varsByName
           };
           column.text = getCellValue(colDef.display, false, gcvOptions);
 

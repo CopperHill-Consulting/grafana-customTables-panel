@@ -78,25 +78,35 @@ var CONTENT_RULE_CLASS_LEVELS = [{
   id: 'ROW',
   text: 'Entire row'
 }];
+var TZ_OFFSET_TYPES = [{
+  id: null,
+  text: 'Default'
+}, {
+  id: 'NO-TIMEZONE',
+  text: 'Local Timezone'
+}, {
+  id: 'TIMEZONE',
+  text: 'Specify Minute Offset'
+}];
 var CONTENT_RULE_MAX_VALUE_OPS = [{
   id: '',
   text: ''
 }, {
   id: '>=',
-  text: "\u2265 (greater than or equal to)"
+  text: "value \u2265 cell (greater than or equal to)"
 }, {
   id: '>',
-  text: '> (greater than)'
+  text: 'value > cell (greater than)'
 }];
 var CONTENT_RULE_MIN_VALUE_OPS = [{
   id: '',
   text: ''
 }, {
   id: '<',
-  text: '< (less than)'
+  text: 'value < cell (less than)'
 }, {
   id: '<=',
-  text: "\u2264 (less than or equal to)"
+  text: "value \u2264 cell (less than or equal to)"
 }];
 var CONTENT_RULE_EXACT_NUM_OPS = [{
   id: '==',
@@ -296,6 +306,8 @@ function (_MetricsPanelCtrl) {
         unitFormat: 'none',
         unitFormatDecimals: 0,
         unitFormatString: '',
+        tzOffsetType: null,
+        tzOffset: 0,
         minValue: null,
         maxValue: null,
         minValueOp: null,
@@ -543,13 +555,10 @@ function (_MetricsPanelCtrl) {
                   cellsByColName: cellsByColName,
                   joinValues: row.joinValues,
                   colIndex: colIndex,
-                  ruleType: rule.type,
+                  rule: rule,
                   rgx: colDefContentRuleFilter,
                   ctrl: ctrl,
-                  varsByName: varsByName,
-                  unitFormat: rule.unitFormat,
-                  unitFormatString: rule.unitFormatString,
-                  unitFormatDecimals: rule.unitFormatDecimals
+                  varsByName: varsByName
                 };
 
                 if (type === 'FILTER') {
@@ -823,12 +832,12 @@ function (_MetricsPanelCtrl) {
             var gcvOptions = {
               cell: column.text,
               cellsByColName: {},
-              ruleType: 'FILTER',
+              rule: {
+                type: 'FILTER'
+              },
               rgx: colDefRgx,
               ctrl: ctrl,
-              varsByName: varsByName,
-              unitFormat: null,
-              unitFormatDecimals: null
+              varsByName: varsByName
             };
             column.text = (0, _helperFunctions.getCellValue)(colDef.display, false, gcvOptions);
             var html = colDef.displayIsHTML ? column.text : _lodash.default.escape(column.text);

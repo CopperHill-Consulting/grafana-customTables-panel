@@ -75,7 +75,15 @@ function pseudoCssToJSON(strLess) {
   }
 }
 
-function getCellValue(valToMod, isForLink, { cell, cellsByColName, joinValues, colIndex, ruleType, rgx, ctrl, varsByName, unitFormat, unitFormatDecimals, unitFormatString }) {
+function offsetByTZ(date, opt_tzOffset) {
+  date = new Date(date);
+  opt_tzOffset = opt_tzOffset == null ? date.getTimezoneOffset() : opt_tzOffset;
+  return new Date(+date + opt_tzOffset * 6e4);
+}
+
+function getCellValue(valToMod, isForLink, options) {
+  let { cell, cellsByColName, joinValues, colIndex, rgx, ctrl, varsByName, rule } = options;
+  let { type: ruleType, unitFormat, unitFormatString, unitFormatDecimals, tzOffsetType, tzOffset } = rule;
   let matches = ruleType === 'FILTER'
     ? cell != null
       ? rgx.exec(cell + '')
@@ -84,12 +92,19 @@ function getCellValue(valToMod, isForLink, { cell, cellsByColName, joinValues, c
 
   let timeVars = ctrl.timeSrv.time;
 
-  matches.value = 
-    /^dateTime/.test(unitFormat)
-      ? getValueFormat(unitFormat)(new Date(cell), unitFormatString)
-      : matches.cell = (!['none', null, void 0].includes(unitFormat) && 'number' === typeof cell)
-        ? getValueFormat(unitFormat)(cell, unitFormatDecimals, null)
-        : cell;
+  if (/^dateTime/.test(unitFormat)) {
+    let date = tzOffsetType === 'NO-TIMEZONE'
+      ? offsetByTZ(cell)
+      : tzOffsetType === 'TIMEZONE'
+        ? offsetByTZ(cell, tzOffset)
+        : new Date(cell);
+    matches.value = getValueFormat(unitFormat)(date, unitFormatString);
+  }
+  else {
+    matches.value = matches.cell = (!['none', null, void 0].includes(unitFormat) && 'number' === typeof cell)
+      ? getValueFormat(unitFormat)(cell, unitFormatDecimals, null)
+      : cell
+  }
 
   return valToMod.replace(RGX_OLD_VAR_WORKAROUND, '$1$2').replace(
     RGX_CELL_PLACEHOLDER,

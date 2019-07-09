@@ -71,25 +71,41 @@ function pseudoCssToJSON(strLess) {
   }
 }
 
-function getCellValue(valToMod, isForLink, _ref) {
-  var cell = _ref.cell,
-      cellsByColName = _ref.cellsByColName,
-      joinValues = _ref.joinValues,
-      colIndex = _ref.colIndex,
-      ruleType = _ref.ruleType,
-      rgx = _ref.rgx,
-      ctrl = _ref.ctrl,
-      varsByName = _ref.varsByName,
-      unitFormat = _ref.unitFormat,
-      unitFormatDecimals = _ref.unitFormatDecimals,
-      unitFormatString = _ref.unitFormatString;
+function offsetByTZ(date, opt_tzOffset) {
+  date = new Date(date);
+  opt_tzOffset = opt_tzOffset == null ? date.getTimezoneOffset() : opt_tzOffset;
+  return new Date(+date + opt_tzOffset * 6e4);
+}
+
+function getCellValue(valToMod, isForLink, options) {
+  var cell = options.cell,
+      cellsByColName = options.cellsByColName,
+      joinValues = options.joinValues,
+      colIndex = options.colIndex,
+      rgx = options.rgx,
+      ctrl = options.ctrl,
+      varsByName = options.varsByName,
+      rule = options.rule;
+  var ruleType = rule.type,
+      unitFormat = rule.unitFormat,
+      unitFormatString = rule.unitFormatString,
+      unitFormatDecimals = rule.unitFormatDecimals,
+      tzOffsetType = rule.tzOffsetType,
+      tzOffset = rule.tzOffset;
   var matches = ruleType === 'FILTER' ? cell != null ? rgx.exec(cell + '') : {
     '0': 'null'
   } : {
     '0': cell
   };
   var timeVars = ctrl.timeSrv.time;
-  matches.value = /^dateTime/.test(unitFormat) ? (0, _formatValues.getValueFormat)(unitFormat)(new Date(cell), unitFormatString) : matches.cell = !['none', null, void 0].includes(unitFormat) && 'number' === typeof cell ? (0, _formatValues.getValueFormat)(unitFormat)(cell, unitFormatDecimals, null) : cell;
+
+  if (/^dateTime/.test(unitFormat)) {
+    var date = tzOffsetType === 'NO-TIMEZONE' ? offsetByTZ(cell) : tzOffsetType === 'TIMEZONE' ? offsetByTZ(cell, tzOffset) : new Date(cell);
+    matches.value = (0, _formatValues.getValueFormat)(unitFormat)(date, unitFormatString);
+  } else {
+    matches.value = matches.cell = !['none', null, void 0].includes(unitFormat) && 'number' === typeof cell ? (0, _formatValues.getValueFormat)(unitFormat)(cell, unitFormatDecimals, null) : cell;
+  }
+
   return valToMod.replace(RGX_OLD_VAR_WORKAROUND, '$1$2').replace(RGX_CELL_PLACEHOLDER, function (match0, isTime, opt_timePart, matchesKey, isColOrVar, name, isRaw, isEscape, isParam, paramName) {
     if (isTime) {
       return (opt_timePart != 'to' ? 'from=' + encodeURIComponent(timeVars.from) : '') + (opt_timePart ? '' : '&') + (opt_timePart != 'from' ? 'to=' + encodeURIComponent(timeVars.to) : '');
