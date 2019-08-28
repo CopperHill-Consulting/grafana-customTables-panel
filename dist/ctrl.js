@@ -13,6 +13,8 @@ var _lodash = _interopRequireDefault(require("lodash"));
 
 var JS = _interopRequireWildcard(require("./external/YourJS.min"));
 
+var saveAs = _interopRequireWildcard(require("./external/FileSaver.min.js"));
+
 var _helperFunctions = require("./helper-functions");
 
 require("./external/datatables/js/jquery.dataTables.min");
@@ -360,27 +362,28 @@ function (_MetricsPanelCtrl) {
           columns = data.columns,
           headers = data.headers;
       this.processRows(rows, columns, headers, this.getVarsByName());
-      JS.dom({
-        _: 'a',
-        href: 'data:text/csv;charset=utf-8,' + encodeURIComponent((0, _helperFunctions.toCSV)(rows.map(function (row) {
-          return row.reduce(function (carry, cell) {
-            if (cell.visible) {
-              carry.push((0, _helperFunctions.getHtmlText)(cell.html));
-            }
+      var csvText = (0, _helperFunctions.toCSV)(rows.map(function (row) {
+        return row.reduce(function (carry, cell) {
+          if (cell.visible) {
+            carry.push((0, _helperFunctions.getHtmlText)(cell.html));
+          }
 
-            return carry;
-          }, []);
-        }), {
-          headers: columns.reduce(function (carry, col) {
-            if (col.visible) {
-              carry.push((0, _helperFunctions.getHtmlText)(col.html));
-            }
+          return carry;
+        }, []);
+      }), {
+        headers: columns.reduce(function (carry, col) {
+          if (col.visible) {
+            carry.push((0, _helperFunctions.getHtmlText)(col.html));
+          }
 
-            return carry;
-          }, [])
-        })),
-        download: this.panel.title + JS.formatDate(new Date(), " (YYYY-MM-DD 'at' H.mm.ss).'csv'")
-      }).click();
+          return carry;
+        }, [])
+      });
+      var blob = new Blob([csvText], {
+        type: 'text/csv;charset=utf-8'
+      });
+      var fileName = this.panel.title + JS.formatDate(new Date(), " (YYYY-MM-DD 'at' H.mm.ss).'csv'");
+      saveAs(blob, fileName);
     }
   }, {
     key: "getVarsByName",

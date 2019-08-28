@@ -2,6 +2,7 @@ import { MetricsPanelCtrl } from 'app/plugins/sdk';
 import { getValueFormats } from './format-values';
 import _ from 'lodash';
 import * as JS from './external/YourJS.min';
+import * as saveAs from './external/FileSaver.min.js';
 import {
   toCSV,
   parseRegExp,
@@ -295,28 +296,25 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
     let { rows, columns, headers } = data;
     this.processRows(rows, columns, headers, this.getVarsByName());
 
-    JS.dom({
-      _: 'a',
-      href: 'data:text/csv;charset=utf-8,' + encodeURIComponent(
-        toCSV(
-          rows.map(row => row.reduce((carry, cell) => {
-            if (cell.visible) {
-              carry.push(getHtmlText(cell.html));
-            }
-            return carry;
-          }, [])),
-          {
-            headers: columns.reduce((carry, col) => {
-              if (col.visible) {
-                carry.push(getHtmlText(col.html));
-              }
-              return carry;
-            }, [])
+    let csvText = toCSV(
+      rows.map(row => row.reduce((carry, cell) => {
+        if (cell.visible) {
+          carry.push(getHtmlText(cell.html));
+        }
+        return carry;
+      }, [])),
+      {
+        headers: columns.reduce((carry, col) => {
+          if (col.visible) {
+            carry.push(getHtmlText(col.html));
           }
-        )
-      ),
-      download: this.panel.title + JS.formatDate(new Date, " (YYYY-MM-DD 'at' H.mm.ss).'csv'")
-    }).click();
+          return carry;
+        }, [])
+      }
+    );
+    let blob = new Blob([csvText], { type: 'text/csv;charset=utf-8' });
+    let fileName = this.panel.title + JS.formatDate(new Date, " (YYYY-MM-DD 'at' H.mm.ss).'csv'");
+    saveAs(blob, fileName);
   }
 
   getVarsByName() {

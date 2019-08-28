@@ -1,5 +1,8 @@
 # Changelog
 
+- **v0.3.1**
+  - Fixed UTF-8 downloads which caused some characters from rendering incorrectly in Excel.
+
 - **v0.3.0**
   - Added timezone offset capabilities.
   - Make sure that the move up and move down buttons for column definitions only show when applicable.
