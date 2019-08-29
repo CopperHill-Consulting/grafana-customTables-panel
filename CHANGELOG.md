@@ -1,5 +1,9 @@
 # Changelog
 
+- **v0.3.2**
+  - Fixed issue causing `${time}`, `${time-from}`, and `${time-to}` to evaluate incorrectly when setting specific times.
+  - Fixed error that occurred when trying to filter cell contents by negating a regexp or a string.
+
 - **v0.3.1**
   - Fixed UTF-8 downloads which caused some characters from rendering incorrectly in Excel.
 

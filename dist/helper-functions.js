@@ -92,7 +92,7 @@ function getCellValue(valToMod, isForLink, options) {
       unitFormatDecimals = rule.unitFormatDecimals,
       tzOffsetType = rule.tzOffsetType,
       tzOffset = rule.tzOffset;
-  var matches = ruleType === 'FILTER' ? cell != null ? rgx.exec(cell + '') : {
+  var matches = ruleType === 'FILTER' ? cell != null ? Object(rgx.exec(cell + '')) : {
     '0': 'null'
   } : {
     '0': cell
@@ -108,7 +108,7 @@ function getCellValue(valToMod, isForLink, options) {
 
   return valToMod.replace(RGX_OLD_VAR_WORKAROUND, '$1$2').replace(RGX_CELL_PLACEHOLDER, function (match0, isTime, opt_timePart, matchesKey, isColOrVar, name, isRaw, isEscape, isParam, paramName) {
     if (isTime) {
-      return (opt_timePart != 'to' ? 'from=' + encodeURIComponent(timeVars.from) : '') + (opt_timePart ? '' : '&') + (opt_timePart != 'from' ? 'to=' + encodeURIComponent(timeVars.to) : '');
+      return (opt_timePart != 'to' ? 'from=' + encodeURIComponent(stringify(timeVars.from)) : '') + (opt_timePart ? '' : '&') + (opt_timePart != 'from' ? 'to=' + encodeURIComponent(stringify(timeVars.to)) : '');
     }
 
     isRaw = isRaw || !(isForLink || isEscape);
@@ -120,7 +120,12 @@ function getCellValue(valToMod, isForLink, options) {
       return encodeURIComponent(paramName == undefined ? isColOrVar === 'var' ? "var-".concat(name) : name : paramName) + '=' + encodeURIComponent(v);
     }).join('&') : encodeURIComponent(result.join(','));
   });
-}
+} // TODO:  Should be improved if other types will be passed
+
+
+var stringify = function stringify(value) {
+  return value instanceof Date ? +value : value && value._isAMomentObject ? +value.toDate() : "".concat(value);
+};
 
 var getHtmlText = function (div) {
   return function (html) {

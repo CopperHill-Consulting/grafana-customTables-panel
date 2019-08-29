@@ -86,7 +86,7 @@ function getCellValue(valToMod, isForLink, options) {
   let { type: ruleType, unitFormat, unitFormatString, unitFormatDecimals, tzOffsetType, tzOffset } = rule;
   let matches = ruleType === 'FILTER'
     ? cell != null
-      ? rgx.exec(cell + '')
+      ? Object(rgx.exec(cell + ''))
       : { '0': 'null' }
     : { '0': cell };
 
@@ -110,9 +110,9 @@ function getCellValue(valToMod, isForLink, options) {
     RGX_CELL_PLACEHOLDER,
     function (match0, isTime, opt_timePart, matchesKey, isColOrVar, name, isRaw, isEscape, isParam, paramName) {
       if (isTime) {
-        return (opt_timePart != 'to' ? 'from=' + encodeURIComponent(timeVars.from) : '')
+        return (opt_timePart != 'to' ? 'from=' + encodeURIComponent(stringify(timeVars.from)) : '')
           + (opt_timePart ? '' : '&')
-          + (opt_timePart != 'from' ? 'to=' + encodeURIComponent(timeVars.to) : '');
+          + (opt_timePart != 'from' ? 'to=' + encodeURIComponent(stringify(timeVars.to)) : '');
       }
 
       isRaw = isRaw || !(isForLink || isEscape);
@@ -138,6 +138,13 @@ function getCellValue(valToMod, isForLink, options) {
     }
   );
 }
+
+// TODO:  Should be improved if other types will be passed
+let stringify = value => value instanceof Date
+  ? +value
+  : (value && value._isAMomentObject)
+    ? +value.toDate()
+    : `${value}`;
 
 const getHtmlText = (div => html => (div.innerHTML = html, div.textContent))(document.createElement('div'));
 
