@@ -97,7 +97,10 @@ function getCellValue(valToMod, isForLink, options) {
   } : {
     '0': cell
   };
-  var timeVars = ctrl.timeSrv.time;
+
+  var _timeSrv$timeRangeFor = timeSrv.timeRangeForUrl(),
+      from = _timeSrv$timeRangeFor.from,
+      to = _timeSrv$timeRangeFor.to;
 
   if (/^dateTime/.test(unitFormat)) {
     var date = tzOffsetType === 'NO-TIMEZONE' ? offsetByTZ(cell) : tzOffsetType === 'TIMEZONE' ? offsetByTZ(cell, tzOffset) : new Date(cell);
@@ -108,7 +111,7 @@ function getCellValue(valToMod, isForLink, options) {
 
   return valToMod.replace(RGX_OLD_VAR_WORKAROUND, '$1$2').replace(RGX_CELL_PLACEHOLDER, function (match0, isTime, opt_timePart, matchesKey, isColOrVar, name, isRaw, isEscape, isParam, paramName) {
     if (isTime) {
-      return (opt_timePart != 'to' ? 'from=' + encodeURIComponent(stringify(timeVars.from)) : '') + (opt_timePart ? '' : '&') + (opt_timePart != 'from' ? 'to=' + encodeURIComponent(stringify(timeVars.to)) : '');
+      return (opt_timePart != 'to' ? 'from=' + encodeURIComponent(from) : '') + (opt_timePart ? '' : '&') + (opt_timePart != 'from' ? 'to=' + encodeURIComponent(to) : '');
     }
 
     isRaw = isRaw || !(isForLink || isEscape);
