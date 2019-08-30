@@ -90,7 +90,7 @@ function getCellValue(valToMod, isForLink, options) {
       : { '0': 'null' }
     : { '0': cell };
 
-  let { from, to } = timeSrv.timeRangeForUrl();
+  let { from, to } = ctrl.timeSrv.timeRangeForUrl();
 
   if (/^dateTime/.test(unitFormat)) {
     let date = tzOffsetType === 'NO-TIMEZONE'

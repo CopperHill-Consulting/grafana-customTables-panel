@@ -98,9 +98,9 @@ function getCellValue(valToMod, isForLink, options) {
     '0': cell
   };
 
-  var _timeSrv$timeRangeFor = timeSrv.timeRangeForUrl(),
-      from = _timeSrv$timeRangeFor.from,
-      to = _timeSrv$timeRangeFor.to;
+  var _ctrl$timeSrv$timeRan = ctrl.timeSrv.timeRangeForUrl(),
+      from = _ctrl$timeSrv$timeRan.from,
+      to = _ctrl$timeSrv$timeRan.to;
 
   if (/^dateTime/.test(unitFormat)) {
     var date = tzOffsetType === 'NO-TIMEZONE' ? offsetByTZ(cell) : tzOffsetType === 'TIMEZONE' ? offsetByTZ(cell, tzOffset) : new Date(cell);
