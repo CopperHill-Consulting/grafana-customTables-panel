@@ -46,6 +46,17 @@
     <div class="gf-form gf-form--grow">
       <gf-form-switch
         class="gf-form"
+        label="Allow Filtering"
+        label-class="width-12"
+        checked="ctrl.panel.allowFiltering"
+        on-change="ctrl.autoRedraw()">
+      </gf-form-switch>
+    </div>
+  </div>
+  <div class="gf-form-inline">
+    <div class="gf-form gf-form--grow">
+      <gf-form-switch
+        class="gf-form"
         label="Allow Pagination"
         label-class="width-12"
         checked="ctrl.panel.allowPaging"

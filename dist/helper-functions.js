@@ -1,6 +1,10 @@
 "use strict";
 
+var JS = _interopRequireWildcard(require("./external/YourJS.min"));
+
 var _formatValues = require("./format-values");
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = Object.defineProperty && Object.getOwnPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : {}; if (desc.get || desc.set) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; return newObj; } }
 
 function _toConsumableArray(arr) { return _arrayWithoutHoles(arr) || _iterableToArray(arr) || _nonIterableSpread(); }
 
@@ -13,6 +17,7 @@ function _arrayWithoutHoles(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
 var RGX_CELL_PLACEHOLDER = /\$\{(time)(?:-(to|from))?\}|\$\{(?:(value|cell|0|[1-9]\d*)|(col|join-col|var):((?:[^\}:\\]*|\\.)+))(?::(?:(raw)|(escape)|(param)(?::((?:[^\}:\\]*|\\.)+))?))?\}/g;
 var RGX_OLD_VAR_WORKAROUND = /([\?&])var-(\$\{var:(?:[^\}:\\]*|\\.)+:param\})/g;
 var RGX_ESCAPED_CHARS = /\\(.)/g;
+var RGX_LOOSE_DATE = /^(\d{4})-(\d\d?)-(\d\d?)(?:(?:T|\s+)(\d\d?):(\d\d?)(?::(\d\d?)(?:\.(\d\d?\d?))?)?)?$/;
 /**
  * Converts an array of arrays of values to a CSV string.
  * @param rows {Array<Array>}
@@ -135,12 +140,113 @@ var getHtmlText = function (div) {
     return div.innerHTML = html, div.textContent;
   };
 }(document.createElement('div'));
+/**
+ * Creates a function that when called will try to match the given string
+ * against `strTerm`.
+ * @param strTerm {string}
+ *   The string that will be parsed and used to test one or more strings.
+ * @param opt_options {?Object}
+ *   Optional.  An object containing all of the options to be used.  The
+ *   `ignoreCase` property (defaults to true) can be added specified to
+ *   allow/disallow non-RegExp terms to match strings regardless of casing.
+ *   The `matchWordStart` (defaults to false) can be added to allow plain words
+ *   to match even if word only starts with the word entered in the term.  The
+ *   `ignoreErrors` (defaults to false) can be added to indicate whether
+ *   malformed will throw JS errors.
+ */
+
+
+function term(strTerm, opt_options) {
+  opt_options = Object(opt_options);
+  var terms = [];
+  var DEFAULT_MUSTS = [];
+  strTerm.replace(/(?:(\+)|(-))?(?:\/((?:[^\\\/]+|\\.)+)\/(i?)|"((?:[^"]+|"")*)"|(\S+))/g, function (match, hasPlus, hasMinus, rgxBody, rgxFlags, quoteBody, word) {
+    try {
+      var must = hasPlus === '+' ? true : hasMinus === '-' ? false : undefined;
+      terms.push({
+        rgx: rgxBody ? new RegExp(rgxBody, (rgxFlags || '') + 'g') : new RegExp((quoteBody || word).replace(/(^\b)|(\s)|([\[\]\{\}\(\)\+\$\^\\\|\?])|("")|(\*)|(\b$)/g, function (match, breakStart, space, specialChar, isQuote, isAsterisk, breakEnd) {
+          return space ? '\\s+' : specialChar ? '\\' + specialChar : isQuote ? '"' : isAsterisk ? '.*' : breakStart === '' || breakEnd === '' && (!opt_options.matchWordStart || quoteBody) ? '\\b' : match;
+        }), 'g' + (opt_options.ignoreCase === false ? '' : 'i')),
+        must: hasPlus === '+' ? true : hasMinus === '-' ? false : undefined
+      });
+      DEFAULT_MUSTS.push(must !== true);
+    } catch (e) {
+      if (opt_options.ignoreErrors) {
+        console.warn(e);
+      } else {
+        throw e;
+      }
+    }
+  });
+  return function (str) {
+    var musts = DEFAULT_MUSTS.slice();
+    var matchWraps = [];
+    terms.forEach(function (term, termIndex) {
+      var match;
+
+      while (match = term.rgx.exec(str)) {
+        if (match[0] === '') {
+          term.rgx.lastIndex++;
+        }
+
+        matchWraps.push({
+          match: match,
+          term: term,
+          termIndex: termIndex
+        });
+      }
+    });
+    matchWraps = matchWraps.sort(function (a, b) {
+      return a.match.index - b.match.index || a.termIndex - b.termIndex;
+    }).filter(function (matchWrap, matchWrapIndex) {
+      var keepIt = !matchWrapIndex;
+
+      if (!keepIt) {
+        var prevMatch = matchWraps[matchWrapIndex - 1].match;
+        var prevMatchEnd = prevMatch.index + prevMatch[0].length;
+        keepIt = matchWrap.match.index >= prevMatchEnd;
+      }
+
+      if (keepIt) {
+        musts[matchWrap.termIndex] = matchWrap.term.must;
+      }
+
+      return keepIt;
+    });
+    return !musts.some(function (must) {
+      return must === false;
+    }) && !!matchWraps.length && matchWraps.map(function (matchWrap) {
+      return matchWrap.match;
+    });
+  };
+}
+
+function parseLocalDate(strDate) {
+  var match = RGX_LOOSE_DATE.exec(strDate);
+
+  if (match) {
+    return new Date(+match[1], +match[2] - 1, +match[3], +match[4] || 0, +match[5] || 0, +match[6] || 0, +match[7] || 0);
+  }
+}
+
+function parseOptionalNumber(strNum) {
+  if (strNum) {
+    if ('function' === typeof BigInt && /^-?(0|[1-9]\d+)n$/.test(strNum)) {
+      return BigInt(strNum.slice(0, -1));
+    } else if (!isNaN(strNum = +strNum)) {
+      return strNum;
+    }
+  }
+}
 
 module.exports = {
   toCSV: toCSV,
   parseRegExp: parseRegExp,
   pseudoCssToJSON: pseudoCssToJSON,
   getCellValue: getCellValue,
-  getHtmlText: getHtmlText
+  getHtmlText: getHtmlText,
+  term: term,
+  parseLocalDate: parseLocalDate,
+  parseOptionalNumber: parseOptionalNumber
 };
 //# sourceMappingURL=helper-functions.js.map

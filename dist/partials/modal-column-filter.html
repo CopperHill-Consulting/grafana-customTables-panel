@@ -1,0 +1,98 @@
+<div>
+  <div class="tabbed-view-header">
+    <h2 class="tabbed-view-title">Filter &ldquo;<i>{{ column.text }}</i>&rdquo;&hellip;</h2>
+    <button class="tabbed-view-close-btn" ng-click="dismiss()">
+      <i class="fa fa-remove"></i>
+    </button>
+  </div>
+
+  <div class="tabbed-view-body">
+    <div class="gf-form" ng-show="includes(['String'], columnDataType)">
+      <label for="txtFilter{{ID_SUFFIX}}" class="gf-form-label width-auto">Filter</label>
+      <input type="text" id="txtFilter{{ID_SUFFIX}}" class="gf-form-input width-auto" ng-model="filter.text" />
+    </div>
+
+    <div class="gf-form" ng-show="includes(['Number'], columnDataType)">
+      <label for="txtMin{{ID_SUFFIX}}" class="gf-form-label width-auto">Minimum Number</label>
+      <input type="number" id="txtMin{{ID_SUFFIX}}" class="gf-form-input width-auto" ng-model="filter.minNum" />
+    </div>
+
+    <div class="gf-form" ng-show="includes(['Number'], columnDataType)">
+      <label for="txtMax{{ID_SUFFIX}}" class="gf-form-label width-auto">Maximum Number</label>
+      <input type="number" id="txtMax{{ID_SUFFIX}}" class="gf-form-input width-auto" ng-model="filter.maxNum" />
+    </div>
+
+    <div class="gf-form" ng-show="includes(['Date'], columnDataType)">
+      <label for="txtMin{{ID_SUFFIX}}" class="gf-form-label width-auto">Minimum Date</label>
+      <input type="text" id="txtMin{{ID_SUFFIX}}" class="gf-form-input width-auto" ng-model="filter.minDate" placeholder="YYYY-MM-DD or YYYY-MM-DD HH:mm:ss" />
+    </div>
+
+    <div class="gf-form" ng-show="includes(['Date'], columnDataType)">
+      <label for="txtMax{{ID_SUFFIX}}" class="gf-form-label width-auto">Maximum Date</label>
+      <input type="text" id="txtMax{{ID_SUFFIX}}" class="gf-form-input width-auto" ng-model="filter.maxDate" placeholder="YYYY-MM-DD or YYYY-MM-DD HH:mm:ss" />
+    </div>
+
+    <div class="gf-form gf-form--grow" ng-show="includes(['Date', 'Number', 'BigInt'], columnDataType)">
+      <gf-form-switch
+        class="gf-form"
+        label="Include Minimum in Range"
+        label-class="width-auto"
+        checked="filter.includeMin">
+      </gf-form-switch>
+    </div>
+
+    <div class="gf-form gf-form--grow" ng-show="includes(['Date', 'Number', 'BigInt'], columnDataType)">
+      <gf-form-switch
+        class="gf-form"
+        label="Include Maximum in Range"
+        label-class="width-auto"
+        checked="filter.includeMax">
+      </gf-form-switch>
+    </div>
+
+    <div class="gf-form gf-form--grow" ng-show="includes(['Boolean'], columnDataType)">
+      <gf-form-switch
+        class="gf-form"
+        label="Match on True"
+        label-class="width-auto"
+        checked="filter.includeTrue">
+      </gf-form-switch>
+    </div>
+
+    <div class="gf-form gf-form--grow" ng-show="includes(['Boolean'], columnDataType)">
+      <gf-form-switch
+        class="gf-form"
+        label="Match on False"
+        label-class="width-auto"
+        checked="filter.includeFalse">
+      </gf-form-switch>
+    </div>
+
+    <div class="gf-form gf-form--grow">
+      <gf-form-switch
+        class="gf-form"
+        label="Match on Null"
+        label-class="width-auto"
+        checked="filter.includeNull">
+      </gf-form-switch>
+    </div>
+
+    <div class="gf-form gf-form--grow">
+      <gf-form-switch
+        class="gf-form"
+        label="Filter Out Matches"
+        label-class="width-auto"
+        checked="filter.negate">
+      </gf-form-switch>
+    </div>
+
+    <div class="gf-form-button-row">
+      <button type="button" class="btn btn-inverse" ng-click="resetFilter()">
+        <i class="fa fa-refresh"></i>&nbsp;Reset Filter
+      </button>
+      <button type="button" class="btn btn-primary" ng-click="saveFilter()">
+        <i class="fa fa-play-circle"></i>&nbsp;Apply Filter
+      </button>
+    </div>
+  </div>
+</div>

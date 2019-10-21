@@ -8,12 +8,21 @@ import {
   parseRegExp,
   pseudoCssToJSON,
   getCellValue,
-  getHtmlText
+  getHtmlText,
+  showYourJSDialog,
+  term,
+  parseLocalDate,
+  parseOptionalNumber,
+  getSwitchSliderFormDOM
 } from './helper-functions';
 import './external/datatables/js/jquery.dataTables.min';
 import './external/datatables/js/dataTables.fixedHeader.min';
+import './external/datatables/js/dataTables.buttons.min';
 import './external/datatables/css/jquery.dataTables.min.css!';
-import './external/datatables/css/fixedHeader.dataTables.min.css!';
+import './external/datatables/css/fixedHeader.dataTables.min.css!'
+import './external/datatables/css/buttons.dataTables.min.css!';
+
+const PARTIALS_BASE_PATH = 'public/plugins/copperhill-datatables-panel/partials/';
 
 const RGX_SIMPLE_NUMBER = /^\d+(\.\d+)?$/;
 
@@ -98,6 +107,7 @@ const DEFAULT_PANEL_SETTINGS = {
   allowLengthChange: true,
   allowOrdering: true,
   allowSearching: true,
+  allowFiltering: false,
   allowRedrawOnModify: true,
   allowPaging: true,
   columnDefs: [],
@@ -134,6 +144,35 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
     this.events.on('init-panel-actions', this.onInitPanelActions.bind(this));
     this.events.on('render', this.onPanelSizeChanged.bind(this));
     this.events.on('view-mode-changed', this.draw.bind(this));
+    this.events.on('panel-teardown', this.onDataTablePanelTeardown.bind(this));
+
+    $.fn.dataTable.ext.search.push(this.filterDataTable.bind(this));
+  }
+
+  filterDataTable(settings, data, rowIndex, originalData) {
+    return arguments.length === 0
+      ? this
+      : this.panel.allowFiltering
+        ? originalData.isProcessed
+          ? this.columns.every(function (column, columnIndex) {
+            let { filter } = column;
+            return !column.colDef
+              || !column.visible
+              || !column.colDef.isSearchable
+              || !filter
+              || filter.ignore
+              || filter.test(originalData[columnIndex].value);
+          })
+          : this.columns.every(function (column, columnIndex) {
+            let {filter} = column;
+            return !column.colDef
+              || !column.visible
+              || !column.colDef.isSearchable
+              || !filter
+              || filter.ignore
+              || filter.test(originalData[columnIndex]);
+          })
+        : true;
   }
 
   drawIfChanged() {
@@ -155,18 +194,26 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
     );
   }
 
+  onDataTablePanelTeardown() {
+    let {search} = $.fn.dataTable.ext;
+    for (var i = search.length; i--; ) {
+      if (search() === this) {
+        search.splice(i, 1);
+      }
+    }
+  }
+
   onPanelSizeChanged() {
     this.fixDataTableSize();
   }
 
   onInitEditMode() {
-    let path = 'public/plugins/copperhill-datatables-panel/partials/';
-    this.addEditorTab('Table View', `${path}refresh-view.html`, 1);
-    this.addEditorTab('Variable Columns', `${path}var-cols.html`, 2);
-    this.addEditorTab('Editor', `${path}editor.html`, 3);
-    this.addEditorTab('Column Definitions', `${path}column-defs.html`, 4);
-    this.addEditorTab('Styles', `${path}styles.html`, 5);
-    this.addEditorTab('Table View', `${path}refresh-view.html`, 6);
+    this.addEditorTab('Table View', `${PARTIALS_BASE_PATH}refresh-view.html`, 1);
+    this.addEditorTab('Variable Columns', `${PARTIALS_BASE_PATH}var-cols.html`, 2);
+    this.addEditorTab('Editor', `${PARTIALS_BASE_PATH}editor.html`, 3);
+    this.addEditorTab('Column Definitions', `${PARTIALS_BASE_PATH}column-defs.html`, 4);
+    this.addEditorTab('Styles', `${PARTIALS_BASE_PATH}styles.html`, 5);
+    this.addEditorTab('Table View', `${PARTIALS_BASE_PATH}refresh-view.html`, 6);
   }
 
   onInitPanelActions(actions) {
@@ -179,7 +226,16 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
 
   onDataReceived(dataList) {
     if (dataList && dataList.length) {
-      dataList.forEach(data => data.isReal = true);
+      dataList.forEach(data => {
+        data.isReal = true;
+        data.rows.forEach(cells => {
+          cells.forEach((cell, cellIndex) => {
+            cells[cellIndex] = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/.test(cell)
+              ? new Date(cell)
+              : cell;
+          });
+        });
+      });
       this.dataList = dataList;
       this.updateDataListOptions();
     }
@@ -293,8 +349,9 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
 
   exportCSV() {
     let data = this.getData();
-    let { rows, columns, headers } = data;
-    this.processRows(rows, columns, headers, this.getVarsByName());
+    let { columns } = data;
+    let { header, body: rows } = this.dataTable.buttons.exportData()
+    this.processRows(rows, columns, header, this.getVarsByName());
 
     let csvText = toCSV(
       rows.map(row => row.reduce((carry, cell) => {
@@ -335,7 +392,7 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
     let panel = ctrl.panel;
     let jElem = ctrl.panelElement;
     let height = jElem.height();
-    let columns = data.columns;
+    let columns = ctrl.columns = data.columns;
     let rows = data.rows;
     let varsByName = ctrl.getVarsByName();
     let domTable = { _: 'table', style: {} };
@@ -369,9 +426,88 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
       }),
       headerCallback(tr) {
         let thIndex = 0;
-        columns.forEach(col => {
+        columns.forEach((col, colIndex) => {
           if (col.visible) {
             let jTH = jQuery('>th', tr).eq(thIndex++).html(col.html);
+            if (panel.allowFiltering && (!col.colDef || col.colDef.isSearchable)) {
+              let { filter } = col;
+              let colDataType = _.get(col, 'filter.dataType', 'String');
+
+              function showFilterModal(e) {
+                e && e.stopPropagation();
+
+                const ID_SUFFIX = +new Date;
+
+                let filterCopy = _.extend(
+                  _.cloneDeep(filter),
+                  {
+                    minDate: filter.minDate
+                      && JS.formatDate(filter.minDate, 'YYYY-MM-DD HH:mm:ss'),
+                    maxDate: filter.maxDate
+                      && JS.formatDate(filter.maxDate, 'YYYY-MM-DD HH:mm:ss')
+                  }
+                );
+
+                ctrl.publishAppEvent('show-modal', {
+                  src: `${PARTIALS_BASE_PATH}modal-column-filter.html`,
+                  scope: _.extend(
+                    ctrl.$scope.$new(true),
+                    {
+                      column: _.cloneDeep(col),
+                      columnDataType: colDataType,
+                      ID_SUFFIX,
+                      filter: filterCopy,
+                      resetFilter() {
+                        this.dismiss();
+                        showFilterModal();
+                      },
+                      saveFilter() {
+                        let scopeFilter = this;
+                        let ignore;
+                        if (colDataType === 'Date' || colDataType === 'Number' || colDataType === 'BigInt') {
+                          if (colDataType === 'Date') {
+                            filter.minDate = parseLocalDate(scopeFilter.filter.minDate);
+                            filter.maxDate = parseLocalDate(scopeFilter.filter.maxDate);
+                          }
+                          else {
+                            filter.minNum = parseOptionalNumber(scopeFilter.filter.minNum);
+                            filter.maxNum = parseOptionalNumber(scopeFilter.filter.maxNum);
+                          }
+                          ignore = filter.minNum == undefined && filter.maxNum == undefined
+                            && filter.minDate == undefined && filter.maxDate == undefined;
+                          filter.includeMin = scopeFilter.filter.includeMin;
+                          filter.includeMax = scopeFilter.filter.includeMax;
+                        }
+                        else if (colDataType === 'Boolean') {
+                          filter.includeTrue = scopeFilter.filter.includeTrue;
+                          filter.includeFalse = scopeFilter.filter.includeFalse;
+                          ignore = !filter.includeTrue && !filter.includeFalse;
+                        }
+                        else {
+                          filter.text = scopeFilter.filter.text.trim();
+                          filter.matchTerms = term(filter.text, { matchWordStart: true });
+                          ignore = filter.text == '';
+                        }
+                        filter.includeNull = scopeFilter.filter.includeNull;
+                        filter.negate = scopeFilter.filter.negate;
+                        filter.ignore = ignore && !filter.includeNull;
+                        ctrl.dataTable.draw();
+                        this.dismiss();
+                      },
+                      includes: (arr, value) => arr.includes(value)
+                    }
+                  ),
+                  modalClass: 'modal-confirm',
+                });
+              }
+
+              jTH.prepend(JS.dom({
+                _: 'i',
+                cls: 'fa fa-filter ' + (filter.ignore ? 'off' : 'on'),
+                style: (filter.ignore ? 'opacity:0.25;' : '') + 'margin-right:0.25em;cursor:pointer;',
+                onclick: showFilterModal
+              }));
+            }
           }
         });
       },
@@ -409,7 +545,7 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
       paging: panel.allowPaging,
       scrollCollapse: true,
       ordering: panel.allowOrdering,
-      searching: panel.allowSearching,
+      searching: true, // Visibility is controlled via CSS to allow for custom filtering
       lengthChange: panel.allowLengthChange,
       lengthMenu: ctrl.getPageLengthOptions().reduce(
         (arr, opt) => [
@@ -426,8 +562,13 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
     // Horizontally center tables that are not full page width.
     jElem.find('.dataTables_scrollHeadInner').css('margin', '0 auto');
 
+    // Control visibility here instead in options to allow for custom filtering.
+    if (!panel.allowSearching) {
+      jElem.find('.dataTables_filter').css('display', 'none');
+    }
+
     // Resize the scroll body of the table.
-    ctrl.fixDataTableSize();
+    ctrl.fixDataTableSize(true);
 
     // Remove the old class names from the wrapper element and add a new
     // targeted stylesheet.
@@ -442,7 +583,7 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
 
     for (let row, rowCount = rows.length, rowIndex = 0; rowIndex < rowCount; rowIndex++) {
       row = rows[rowIndex];
-      if (!row.isProcessed) {
+      if (!row.isProcessed && (0 in row) && !row[0].isProcessed) {
         for (let cell, cellValue, tdIndex = 0, cellCount = row.length, colIndex = 0; colIndex < cellCount; colIndex++) {
           let ruleApplied;
           let column = columns[colIndex];
@@ -453,8 +594,10 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
           cell = {
             html: cellValue,
             visible: column.visible,
+            value: cellValue,
             valueOf() { return cellValue; },
-            toString() { return cellValue; }
+            toString() { return cellValue + ''; },
+            isProcessed: true
           };
 
           if (colDef) {
@@ -706,9 +849,10 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
         column.visible = true;
       }
 
+      let colDef;
       colDefRgxs.find((colDefRgx, colDefIndex) => {
         if (colDefRgx.test(column.text)) {
-          let colDef = colDefs[colDefIndex];
+          colDef = colDefs[colDefIndex];
           let gcvOptions = {
             cell: column.text,
             cellsByColName: {},
@@ -727,14 +871,57 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
             html = `<a href="${url}" target="${target}" onclick="event.stopPropagation()">${html}</a>`;
           }
 
-          column.colDef = colDef;
-          column.colDefContentRuleFilters = colDefContentRuleFilters[colDefIndex];
-          column.html = html;
-          column.visible = colDef.isVisible;
+          _.extend(column, {
+            colDef,
+            colDefContentRuleFilters: colDefContentRuleFilters[colDefIndex],
+            html,
+            visible: colDef.isVisible
+          });
 
           return true;
         }
       });
+
+      column.filter = {
+        ignore: true,
+        negate: false,
+        text: '',
+        includeTrue: false,
+        includeFalse: false,
+        includeNull: false,
+        minNum: null,
+        maxNum: null,
+        minDate: null,
+        maxDate: null,
+        includeMin: false,
+        includeMax: false,
+        dataType: JS.nativeType((rows.find(row => row[colIndex] != undefined) || [])[colIndex]),
+        test(value) {
+          let { negate, text, includeTrue, includeFalse, includeNull, minNum, maxNum, minDate, maxDate, includeMin, includeMax, dataType } = this;
+          let min = minNum != undefined ? minNum : minDate;
+          let max = maxNum != undefined ? maxNum : maxDate;
+          if (dataType === 'Date' || dataType === 'Number' || dataType === 'BigInt') {
+            return (
+              value == undefined
+                ? includeNull
+                : (
+                  (min == undefined || (includeMin ? min <= value : (min < value)))
+                  && (max == undefined || (includeMax ? value <= max : (value < max)))
+                )
+            ) !== negate;
+          }
+          else if (dataType === 'Boolean') {
+            return (
+              (includeTrue && value)
+              || (includeFalse && !value)
+              || (includeNull && value == undefined)
+            ) !== negate;
+          }
+          return (this.matchTerms(value) || (includeNull && value == undefined)) !== negate;
+        },
+        matchTerms() { return true; }
+      };
+      column.filter.test = column.filter.test.bind(column.filter);
 
       if (!_.has(column, 'html')) {
         column.html = _.escape(column.text);
@@ -746,7 +933,7 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
     return data;
   }
 
-  fixDataTableSize() {
+  fixDataTableSize(opt_onlyFixHeight) {
     let jElem = this.panelElement;
     let fullHeight = jElem.height();
     let jWrap = jElem.find('.dataTables_wrapper');
@@ -759,7 +946,7 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
     }
 
     // Make sure the column headers get resized
-    if (this.dataTable) {
+    if (this.dataTable && !opt_onlyFixHeight) {
       this.dataTable.columns().draw();
     }
   }

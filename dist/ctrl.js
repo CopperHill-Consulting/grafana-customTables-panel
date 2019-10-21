@@ -21,9 +21,13 @@ require("./external/datatables/js/jquery.dataTables.min");
 
 require("./external/datatables/js/dataTables.fixedHeader.min");
 
+require("./external/datatables/js/dataTables.buttons.min");
+
 require("./external/datatables/css/jquery.dataTables.min.css!");
 
 require("./external/datatables/css/fixedHeader.dataTables.min.css!");
+
+require("./external/datatables/css/buttons.dataTables.min.css!");
 
 function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = Object.defineProperty && Object.getOwnPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : {}; if (desc.get || desc.set) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; return newObj; } }
 
@@ -47,6 +51,7 @@ function _inherits(subClass, superClass) { if (typeof superClass !== "function" 
 
 function _setPrototypeOf(o, p) { _setPrototypeOf = Object.setPrototypeOf || function _setPrototypeOf(o, p) { o.__proto__ = p; return o; }; return _setPrototypeOf(o, p); }
 
+var PARTIALS_BASE_PATH = 'public/plugins/copperhill-datatables-panel/partials/';
 var RGX_SIMPLE_NUMBER = /^\d+(\.\d+)?$/;
 var DEFAULT_PSEUDO_CSS = "\n.theme-dark & {\n  color: white;\n  \n  .dataTables_filter input[type=search] {\n    border: 1px solid #262628;\n  }\n}\n.dataTables_filter input[type=search] {\n  border: 1px solid #dde4ed;\n  height: 35px;\n  line-height: 35px;\n  border-radius: 5px;\n  padding: 0 8px;\n}\ntable.dataTable tbody tr {\n  &:hover td {\n    background-image: linear-gradient(0deg, rgba(128,128,128,0.1), rgba(128,128,128,0.1));\n  }\n  &, &.even, &.odd {\n    background-color: transparent;\n    td {\n      border-color: transparent;\n    }\n  }\n  &.odd {\n    background-color: rgba(128,128,128,0.3);\n  }\n  &.even {\n    background-color: rgba(128,128,128,0.15);\n  }\n}\n";
 var UNIT_FORMATS = (0, _formatValues.getValueFormats)();
@@ -121,6 +126,7 @@ var DEFAULT_PANEL_SETTINGS = {
   allowLengthChange: true,
   allowOrdering: true,
   allowSearching: true,
+  allowFiltering: false,
   allowRedrawOnModify: true,
   allowPaging: true,
   columnDefs: [],
@@ -170,10 +176,24 @@ function (_MetricsPanelCtrl) {
 
     _this.events.on('view-mode-changed', _this.draw.bind(_assertThisInitialized(_this)));
 
+    _this.events.on('panel-teardown', _this.onDataTablePanelTeardown.bind(_assertThisInitialized(_this)));
+
+    $.fn.dataTable.ext.search.push(_this.filterDataTable.bind(_assertThisInitialized(_this)));
     return _this;
   }
 
   _createClass(DataTablePanelCtrl, [{
+    key: "filterDataTable",
+    value: function filterDataTable(settings, data, rowIndex, originalData) {
+      return arguments.length === 0 ? this : this.panel.allowFiltering ? originalData.isProcessed ? this.columns.every(function (column, columnIndex) {
+        var filter = column.filter;
+        return !column.colDef || !column.visible || !column.colDef.isSearchable || !filter || filter.ignore || filter.test(originalData[columnIndex].value);
+      }) : this.columns.every(function (column, columnIndex) {
+        var filter = column.filter;
+        return !column.colDef || !column.visible || !column.colDef.isSearchable || !filter || filter.ignore || filter.test(originalData[columnIndex]);
+      }) : true;
+    }
+  }, {
     key: "drawIfChanged",
     value: function drawIfChanged() {
       if (this.panelJSON !== this.getPanelSettingsJSON()) {
@@ -189,6 +209,17 @@ function (_MetricsPanelCtrl) {
       }, spacing);
     }
   }, {
+    key: "onDataTablePanelTeardown",
+    value: function onDataTablePanelTeardown() {
+      var search = $.fn.dataTable.ext.search;
+
+      for (var i = search.length; i--;) {
+        if (search() === this) {
+          search.splice(i, 1);
+        }
+      }
+    }
+  }, {
     key: "onPanelSizeChanged",
     value: function onPanelSizeChanged() {
       this.fixDataTableSize();
@@ -196,13 +227,12 @@ function (_MetricsPanelCtrl) {
   }, {
     key: "onInitEditMode",
     value: function onInitEditMode() {
-      var path = 'public/plugins/copperhill-datatables-panel/partials/';
-      this.addEditorTab('Table View', "".concat(path, "refresh-view.html"), 1);
-      this.addEditorTab('Variable Columns', "".concat(path, "var-cols.html"), 2);
-      this.addEditorTab('Editor', "".concat(path, "editor.html"), 3);
-      this.addEditorTab('Column Definitions', "".concat(path, "column-defs.html"), 4);
-      this.addEditorTab('Styles', "".concat(path, "styles.html"), 5);
-      this.addEditorTab('Table View', "".concat(path, "refresh-view.html"), 6);
+      this.addEditorTab('Table View', "".concat(PARTIALS_BASE_PATH, "refresh-view.html"), 1);
+      this.addEditorTab('Variable Columns', "".concat(PARTIALS_BASE_PATH, "var-cols.html"), 2);
+      this.addEditorTab('Editor', "".concat(PARTIALS_BASE_PATH, "editor.html"), 3);
+      this.addEditorTab('Column Definitions', "".concat(PARTIALS_BASE_PATH, "column-defs.html"), 4);
+      this.addEditorTab('Styles', "".concat(PARTIALS_BASE_PATH, "styles.html"), 5);
+      this.addEditorTab('Table View', "".concat(PARTIALS_BASE_PATH, "refresh-view.html"), 6);
     }
   }, {
     key: "onInitPanelActions",
@@ -222,7 +252,12 @@ function (_MetricsPanelCtrl) {
     value: function onDataReceived(dataList) {
       if (dataList && dataList.length) {
         dataList.forEach(function (data) {
-          return data.isReal = true;
+          data.isReal = true;
+          data.rows.forEach(function (cells) {
+            cells.forEach(function (cell, cellIndex) {
+              cells[cellIndex] = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/.test(cell) ? new Date(cell) : cell;
+            });
+          });
         });
         this.dataList = dataList;
         this.updateDataListOptions();
@@ -358,10 +393,13 @@ function (_MetricsPanelCtrl) {
     key: "exportCSV",
     value: function exportCSV() {
       var data = this.getData();
-      var rows = data.rows,
-          columns = data.columns,
-          headers = data.headers;
-      this.processRows(rows, columns, headers, this.getVarsByName());
+      var columns = data.columns;
+
+      var _this$dataTable$butto = this.dataTable.buttons.exportData(),
+          header = _this$dataTable$butto.header,
+          rows = _this$dataTable$butto.body;
+
+      this.processRows(rows, columns, header, this.getVarsByName());
       var csvText = (0, _helperFunctions.toCSV)(rows.map(function (row) {
         return row.reduce(function (carry, cell) {
           if (cell.visible) {
@@ -403,7 +441,7 @@ function (_MetricsPanelCtrl) {
       var panel = ctrl.panel;
       var jElem = ctrl.panelElement;
       var height = jElem.height();
-      var columns = data.columns;
+      var columns = ctrl.columns = data.columns;
       var rows = data.rows;
       var varsByName = ctrl.getVarsByName();
       var domTable = {
@@ -443,9 +481,84 @@ function (_MetricsPanelCtrl) {
         }),
         headerCallback: function headerCallback(tr) {
           var thIndex = 0;
-          columns.forEach(function (col) {
+          columns.forEach(function (col, colIndex) {
             if (col.visible) {
               var jTH = jQuery('>th', tr).eq(thIndex++).html(col.html);
+
+              if (panel.allowFiltering && (!col.colDef || col.colDef.isSearchable)) {
+                var showFilterModal = function showFilterModal(e) {
+                  e && e.stopPropagation();
+                  var ID_SUFFIX = +new Date();
+
+                  var filterCopy = _lodash.default.extend(_lodash.default.cloneDeep(filter), {
+                    minDate: filter.minDate && JS.formatDate(filter.minDate, 'YYYY-MM-DD HH:mm:ss'),
+                    maxDate: filter.maxDate && JS.formatDate(filter.maxDate, 'YYYY-MM-DD HH:mm:ss')
+                  });
+
+                  ctrl.publishAppEvent('show-modal', {
+                    src: "".concat(PARTIALS_BASE_PATH, "modal-column-filter.html"),
+                    scope: _lodash.default.extend(ctrl.$scope.$new(true), {
+                      column: _lodash.default.cloneDeep(col),
+                      columnDataType: colDataType,
+                      ID_SUFFIX: ID_SUFFIX,
+                      filter: filterCopy,
+                      resetFilter: function resetFilter() {
+                        this.dismiss();
+                        showFilterModal();
+                      },
+                      saveFilter: function saveFilter() {
+                        var scopeFilter = this;
+                        var ignore;
+
+                        if (colDataType === 'Date' || colDataType === 'Number' || colDataType === 'BigInt') {
+                          if (colDataType === 'Date') {
+                            filter.minDate = (0, _helperFunctions.parseLocalDate)(scopeFilter.filter.minDate);
+                            filter.maxDate = (0, _helperFunctions.parseLocalDate)(scopeFilter.filter.maxDate);
+                          } else {
+                            filter.minNum = (0, _helperFunctions.parseOptionalNumber)(scopeFilter.filter.minNum);
+                            filter.maxNum = (0, _helperFunctions.parseOptionalNumber)(scopeFilter.filter.maxNum);
+                          }
+
+                          ignore = filter.minNum == undefined && filter.maxNum == undefined && filter.minDate == undefined && filter.maxDate == undefined;
+                          filter.includeMin = scopeFilter.filter.includeMin;
+                          filter.includeMax = scopeFilter.filter.includeMax;
+                        } else if (colDataType === 'Boolean') {
+                          filter.includeTrue = scopeFilter.filter.includeTrue;
+                          filter.includeFalse = scopeFilter.filter.includeFalse;
+                          ignore = !filter.includeTrue && !filter.includeFalse;
+                        } else {
+                          filter.text = scopeFilter.filter.text.trim();
+                          filter.matchTerms = (0, _helperFunctions.term)(filter.text, {
+                            matchWordStart: true
+                          });
+                          ignore = filter.text == '';
+                        }
+
+                        filter.includeNull = scopeFilter.filter.includeNull;
+                        filter.negate = scopeFilter.filter.negate;
+                        filter.ignore = ignore && !filter.includeNull;
+                        ctrl.dataTable.draw();
+                        this.dismiss();
+                      },
+                      includes: function includes(arr, value) {
+                        return arr.includes(value);
+                      }
+                    }),
+                    modalClass: 'modal-confirm'
+                  });
+                };
+
+                var filter = col.filter;
+
+                var colDataType = _lodash.default.get(col, 'filter.dataType', 'String');
+
+                jTH.prepend(JS.dom({
+                  _: 'i',
+                  cls: 'fa fa-filter ' + (filter.ignore ? 'off' : 'on'),
+                  style: (filter.ignore ? 'opacity:0.25;' : '') + 'margin-right:0.25em;cursor:pointer;',
+                  onclick: showFilterModal
+                }));
+              }
             }
           });
         },
@@ -491,7 +604,8 @@ function (_MetricsPanelCtrl) {
         paging: panel.allowPaging,
         scrollCollapse: true,
         ordering: panel.allowOrdering,
-        searching: panel.allowSearching,
+        searching: true,
+        // Visibility is controlled via CSS to allow for custom filtering
         lengthChange: panel.allowLengthChange,
         lengthMenu: ctrl.getPageLengthOptions().reduce(function (arr, opt) {
           return [arr[0].concat([opt.value === Infinity ? -1 : opt.value]), arr[1].concat([opt.value === Infinity ? 'All' : opt.value])];
@@ -501,9 +615,14 @@ function (_MetricsPanelCtrl) {
       };
       ctrl.dataTable = jTable.DataTable(dataTableOpts); // Horizontally center tables that are not full page width.
 
-      jElem.find('.dataTables_scrollHeadInner').css('margin', '0 auto'); // Resize the scroll body of the table.
+      jElem.find('.dataTables_scrollHeadInner').css('margin', '0 auto'); // Control visibility here instead in options to allow for custom filtering.
 
-      ctrl.fixDataTableSize(); // Remove the old class names from the wrapper element and add a new
+      if (!panel.allowSearching) {
+        jElem.find('.dataTables_filter').css('display', 'none');
+      } // Resize the scroll body of the table.
+
+
+      ctrl.fixDataTableSize(true); // Remove the old class names from the wrapper element and add a new
       // targeted stylesheet.
 
       jElem.each(function (i, elem) {
@@ -519,7 +638,7 @@ function (_MetricsPanelCtrl) {
       for (var row, rowCount = rows.length, rowIndex = 0; rowIndex < rowCount; rowIndex++) {
         row = rows[rowIndex];
 
-        if (!row.isProcessed) {
+        if (!row.isProcessed && 0 in row && !row[0].isProcessed) {
           var _loop = function _loop(_cell, _cellValue, tdIndex, cellCount, colIndex) {
             var ruleApplied = void 0;
             var column = columns[colIndex];
@@ -528,6 +647,7 @@ function (_MetricsPanelCtrl) {
             _cell = {
               html: _cellValue,
               visible: column.visible,
+              value: _cellValue,
               valueOf: function valueOf() {
                 cell = _cell;
                 cellValue = _cellValue;
@@ -536,8 +656,9 @@ function (_MetricsPanelCtrl) {
               toString: function toString() {
                 cell = _cell;
                 cellValue = _cellValue;
-                return _cellValue;
-              }
+                return _cellValue + '';
+              },
+              isProcessed: true
             };
 
             if (colDef) {
@@ -829,9 +950,10 @@ function (_MetricsPanelCtrl) {
           column.visible = true;
         }
 
+        var colDef;
         colDefRgxs.find(function (colDefRgx, colDefIndex) {
           if (colDefRgx.test(column.text)) {
-            var colDef = colDefs[colDefIndex];
+            colDef = colDefs[colDefIndex];
             var gcvOptions = {
               cell: column.text,
               cellsByColName: {},
@@ -852,13 +974,61 @@ function (_MetricsPanelCtrl) {
               html = "<a href=\"".concat(url, "\" target=\"").concat(target, "\" onclick=\"event.stopPropagation()\">").concat(html, "</a>");
             }
 
-            column.colDef = colDef;
-            column.colDefContentRuleFilters = colDefContentRuleFilters[colDefIndex];
-            column.html = html;
-            column.visible = colDef.isVisible;
+            _lodash.default.extend(column, {
+              colDef: colDef,
+              colDefContentRuleFilters: colDefContentRuleFilters[colDefIndex],
+              html: html,
+              visible: colDef.isVisible
+            });
+
             return true;
           }
         });
+        column.filter = {
+          ignore: true,
+          negate: false,
+          text: '',
+          includeTrue: false,
+          includeFalse: false,
+          includeNull: false,
+          minNum: null,
+          maxNum: null,
+          minDate: null,
+          maxDate: null,
+          includeMin: false,
+          includeMax: false,
+          dataType: JS.nativeType((rows.find(function (row) {
+            return row[colIndex] != undefined;
+          }) || [])[colIndex]),
+          test: function test(value) {
+            var negate = this.negate,
+                text = this.text,
+                includeTrue = this.includeTrue,
+                includeFalse = this.includeFalse,
+                includeNull = this.includeNull,
+                minNum = this.minNum,
+                maxNum = this.maxNum,
+                minDate = this.minDate,
+                maxDate = this.maxDate,
+                includeMin = this.includeMin,
+                includeMax = this.includeMax,
+                dataType = this.dataType;
+            var min = minNum != undefined ? minNum : minDate;
+            var max = maxNum != undefined ? maxNum : maxDate;
+
+            if (dataType === 'Date' || dataType === 'Number' || dataType === 'BigInt') {
+              return (value == undefined ? includeNull : (min == undefined || (includeMin ? min <= value : min < value)) && (max == undefined || (includeMax ? value <= max : value < max))) !== negate;
+            } else if (dataType === 'Boolean') {
+              return (includeTrue && value || includeFalse && !value || includeNull && value == undefined) !== negate;
+            }
+
+            return (this.matchTerms(value) || includeNull && value == undefined) !== negate;
+          },
+          matchTerms: function matchTerms() {
+            return true;
+          }
+        };
+        column.filter.test = column.filter.test.bind(column.filter);
 
         if (!_lodash.default.has(column, 'html')) {
           column.html = _lodash.default.escape(column.text);
@@ -870,7 +1040,7 @@ function (_MetricsPanelCtrl) {
     }
   }, {
     key: "fixDataTableSize",
-    value: function fixDataTableSize() {
+    value: function fixDataTableSize(opt_onlyFixHeight) {
       var jElem = this.panelElement;
       var fullHeight = jElem.height();
       var jWrap = jElem.find('.dataTables_wrapper');
@@ -884,7 +1054,7 @@ function (_MetricsPanelCtrl) {
       } // Make sure the column headers get resized
 
 
-      if (this.dataTable) {
+      if (this.dataTable && !opt_onlyFixHeight) {
         this.dataTable.columns().draw();
       }
     }

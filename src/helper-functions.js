@@ -150,147 +150,6 @@ let stringify = value => value instanceof Date
 
 const getHtmlText = (div => html => (div.innerHTML = html, div.textContent))(document.createElement('div'));
 
-/*
-Possible options properties:
-- title (string):
-    Required.  The title shown for the dialog.
-- contents (Array<Object|string>|Object|string):
-    Required.  Any object that is given should represent an element as specified
-    by YourJS.dom().  Any strings given should contain the text to show.
-- css (Object):
-    Optional.  Represents a CSS stylesheet as specified by YourJS.css().
-- showCloser (boolean):
-    Optional.  If true the close button in the top-right corner will be shown.
-*/
-function showYourJSDialog(options) {
-  options = Object(options);
-
-  var body = document.body;
-
-  var wrap = JS.dom({
-    _: 'div',
-    $: {
-      _: 'div',
-      cls: 'wrap-as-table',
-      $: [
-        {
-          _: 'div',
-          cls: 'header-row',
-          $: [
-            {
-              _: 'div',
-              cls: 'header-cell',
-              $: [
-                options.title,
-                {
-                  _: 'div',
-                  cls: 'closer',
-                  text: '\xA0\xA0\xD7\xA0\xA0',
-                  onclick: closeDialog
-                }
-              ].slice(0, (options.showCloser || options.showCloser == undefined) ? 2 : 1)
-            }
-          ]
-        },
-        {
-          _: 'div',
-          cls: 'content-row',
-          $: {
-            _: 'div',
-            cls: 'content-cell',
-            $: {
-              _: 'div',
-              cls: 'content-div',
-              $: options.contents
-            }
-          }
-        }
-      ]
-    }
-  });
-  body.appendChild(wrap);
-  var css = JS.css({
-    '&': options.css || {},
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: '9999',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    padding: '16px 5%',
-
-    '>.wrap-as-table': {
-      display: 'table',
-      maxHeight: '100%',
-      width: '100%',
-      backgroundColor: '#FFF',
-      borderRadius: '0.5em',
-      boxShadow: 'inset 0 0 5px #000, 0 0 5px #000',
-      overflow: 'hidden',
-
-      '>.header-row': {
-        display: 'table-row',
-        fontSize: '1.75em',
-        fontWeight: 'bold',
-        textShadow: '2px 2px rgba(0,0,0,0.125)',
-
-        '>.header-cell': {
-          display: 'table-cell',
-          height: 1,
-          width: '99%',
-          boxShadow: '0 3px 3px -3px',
-          paddingLeft: '8px',
-          backgroundImage: 'linear-gradient(to bottom, rgba(0,0,0,0) 50%, rgba(0,0,0,0.125) 60%, rgba(0,0,0,0.0625))',
-
-          '>.closer': {
-            color: '#FFF',
-            backgroundColor: '#F00',
-            textAlign: 'center',
-            borderRadius: '1em',
-            cursor: 'pointer',
-            boxShadow: '0 0 3px 1px #000, inset -0.125em -0.125em 0.5em #000',
-            height: '1.5em',
-            width: '1.5em',
-            float: 'right',
-
-            '&:hover': {
-              backgroundColor: '#B00'
-            }
-          }
-        }
-      },
-
-      '>.content-row': {
-        display: 'table-row',
-
-        '>.content-cell': {
-          display: 'table-cell',
-          height: '99%',
-          overflow: 'auto',
-
-          '>.content-div': {
-            maxHeight: '85vh',
-            padding: '8px',
-            overflow: 'auto'
-          }
-        }
-      }
-    }
-  }, wrap);
-
-  function closeDialog() {
-    body.removeChild(wrap);
-    css.parentNode.removeChild(css);
-  }
-
-  return {
-    close: closeDialog,
-    stylesheet: css,
-    rootElement: wrap
-  };
-}
-
 /**
  * Creates a function that when called will try to match the given string
  * against `strTerm`.
@@ -404,54 +263,13 @@ function parseOptionalNumber(strNum) {
   }
 }
 
-function getSwitchSliderFormDOM(label, isOn, id, opt_formAtts) {
-  return _.extend(
-    {
-      _: 'div',
-      cls: 'gf-form',
-      $: [
-        {
-          _: 'label',
-          cls: 'gf-form-label',
-          htmlFor: id,
-          text: label
-        },
-        {
-          _: 'div',
-          cls: 'gf-form-switch',
-          $: [
-            {
-              _: 'input',
-              id: id,
-              type: 'checkbox',
-              cls: `ng-valid ng-dirty ng-valid-parse ng-touched ng-${isOn ? 'not-' : ''}empty`,
-              oninput() {
-                this.className = `ng-valid ng-dirty ng-valid-parse ng-touched ng-${this.checked ? 'not-' : ''}empty`;
-              },
-              [isOn ? 'checked' : 'data-checked']: isOn
-            },
-            {
-              _: 'label',
-              cls: 'gf-form-switch__slider',
-              htmlFor: id
-            }
-          ]
-        }
-      ]
-    },
-    Object(opt_formAtts)
-  );
-}
-
 module.exports = {
   toCSV,
   parseRegExp,
   pseudoCssToJSON,
   getCellValue,
   getHtmlText,
-  showYourJSDialog,
   term,
   parseLocalDate,
-  parseOptionalNumber,
-  getSwitchSliderFormDOM
+  parseOptionalNumber
 };

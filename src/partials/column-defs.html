@@ -54,7 +54,7 @@
     </gf-form-switch>
   </div>
   <div ng-if="cd.isVisible">
-    <div ng-if="ctrl.panel.allowSearching" class="gf-form">
+    <div ng-if="ctrl.panel.allowSearching || ctrl.panel.allowFiltering" class="gf-form">
       <gf-form-switch
         class="gf-form"
         label="Is Searchable"

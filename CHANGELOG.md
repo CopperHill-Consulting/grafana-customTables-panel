@@ -1,5 +1,8 @@
 # Changelog
 
+- **v0.4.0**
+  - Added filterable columns.
+
 - **v0.3.2**
   - Fixed issue causing `${time}`, `${time-from}`, and `${time-to}` to evaluate incorrectly when setting specific times.
   - Fixed error that occurred when trying to filter cell contents by negating a regexp or a string.
