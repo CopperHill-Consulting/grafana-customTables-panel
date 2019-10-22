@@ -2,6 +2,10 @@
 
 - **v0.4.0**
   - Added filterable columns.
+  - Added "Download As..." Modal.
+    - CSV
+    - JSON
+    - TSV
 
 - **v0.3.2**
   - Fixed issue causing `${time}`, `${time-from}`, and `${time-to}` to evaluate incorrectly when setting specific times.

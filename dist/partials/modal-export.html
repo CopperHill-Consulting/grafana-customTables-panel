@@ -1,0 +1,39 @@
+<div>
+  <div class="tabbed-view-header">
+    <h2 class="tabbed-view-title">Download As&hellip;</h2>
+    <button class="tabbed-view-close-btn" ng-click="dismiss()">
+      <i class="fa fa-remove"></i>
+    </button>
+  </div>
+
+  <div class="tabbed-view-body">
+    <div class="gf-form">
+      <label class="gf-form-label width-auto">Export Type</label>
+      <select class="gf-form-input"
+        ng-model="exportType"
+        ng-options="eType.value as eType.text for eType in EXPORT_TYPES">
+      </select>
+    </div>
+    <div class="gf-form">
+      <label class="gf-form-label width-auto">File Name Pattern</label>
+        <input type="text"
+          class="gf-form-input width-max"
+          ng-model="fileNamePattern"
+          placeholder="{{fileNamePatternPlaceholder}}"
+        />
+    </div>
+    <div class="gf-form">
+      <label class="gf-form-label width-auto">File Name</label>
+        <input type="text"
+          class="gf-form-input width-max"
+          value="{{getFileName()}}"
+          readonly
+        />
+    </div>
+    <div class="gf-form-button-row">
+      <button type="button" class="btn btn-secondary" ng-click="download()">
+        Download As {{exportType}}
+      </button>
+    </div>
+  </div>
+</div>

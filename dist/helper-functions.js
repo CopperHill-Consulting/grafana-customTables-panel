@@ -39,11 +39,13 @@ function toCSV(rows, opt_options) {
   }
 
   var nullString = opt_options.hasOwnProperty('nullString') ? opt_options.nullString : '(NULL)';
+  var delimiter = opt_options.delimiter || ',';
+  var RGX_DELIMIT = delimiter === ',' ? /[",\n\r]/ : new RegExp('["\r\n' + JS.quoteRegExp(delimiter) + ']');
   return rows.map(function (row) {
     return row.map(function (cell) {
       cell = cell != null ? 'function' === typeof cell.toString ? cell + "" : Object.prototype.toString.call(cell) : nullString;
-      return /[",\n\r]/.test(cell) ? '"' + cell.replace(/"/g, '""') + '"' : cell;
-    }).join(',');
+      return RGX_DELIMIT.test(cell) ? '"' + cell.replace(/"/g, '""') + '"' : cell;
+    }).join(delimiter);
   }).join('\n');
 }
 

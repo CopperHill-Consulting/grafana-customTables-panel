@@ -238,8 +238,9 @@ function (_MetricsPanelCtrl) {
     key: "onInitPanelActions",
     value: function onInitPanelActions(actions) {
       actions.push({
-        text: 'Export CSV',
-        click: 'ctrl.exportCSV()'
+        icon: 'fa fa-download',
+        text: "Download As\u2026",
+        click: 'ctrl.showDownloadModal()'
       });
     }
   }, {
@@ -390,14 +391,88 @@ function (_MetricsPanelCtrl) {
       }, []);
     }
   }, {
-    key: "exportCSV",
-    value: function exportCSV() {
+    key: "showDownloadModal",
+    value: function showDownloadModal() {
+      var FILE_NAME_PATTERN = "<TITLE> (YYYY-MM-DD 'at' H.mm.ss)";
+      var ctrl = this;
+      ctrl.publishAppEvent('show-modal', {
+        src: "".concat(PARTIALS_BASE_PATH, "modal-export.html"),
+        scope: _lodash.default.extend(ctrl.$scope.$new(true), {
+          fileNamePattern: FILE_NAME_PATTERN,
+          fileNamePatternPlaceholder: FILE_NAME_PATTERN,
+          EXPORT_TYPES: [{
+            value: 'CSV',
+            text: 'CSV (Comma-separated values)'
+          }, {
+            value: 'JSON',
+            text: 'JSON (JavaScript Object Notation)'
+          }, {
+            value: 'TSV',
+            text: 'TSV (Tab-separated values)'
+          }],
+          exportType: 'CSV',
+          getFileName: function getFileName() {
+            return ctrl.getFileName(this.fileNamePattern, this.exportType);
+          },
+          download: function download() {
+            if (this.exportType === 'CSV') {
+              ctrl.exportCSV(this.fileNamePattern);
+            } else if (this.exportType === 'JSON') {
+              ctrl.exportJSON(this.fileNamePattern);
+            } else if (this.exportType === 'TSV') {
+              ctrl.exportCSV(this.fileNamePattern, {
+                delimiter: '\t',
+                ext: 'tsv'
+              });
+            }
+          }
+        }),
+        modalClass: 'modal-confirm'
+      });
+    }
+  }, {
+    key: "exportJSON",
+    value: function exportJSON(fileNamePattern) {
       var data = this.getData();
       var columns = data.columns;
 
       var _this$dataTable$butto = this.dataTable.buttons.exportData(),
           header = _this$dataTable$butto.header,
-          rows = _this$dataTable$butto.body;
+          body = _this$dataTable$butto.body;
+
+      var HEADER_TEXTS = columns.filter(function (c) {
+        return c.visible;
+      }).map(function (c) {
+        return (0, _helperFunctions.getHtmlText)(c.html);
+      });
+      this.processRows(body, columns, header, this.getVarsByName());
+      var rows = body.map(function (row) {
+        return row.reduce(function (objRow, cell, cellIndex) {
+          if (cell.visible) {
+            objRow[HEADER_TEXTS[cellIndex]] = (0, _helperFunctions.getHtmlText)(cell.html);
+          }
+
+          return objRow;
+        }, {});
+      });
+      var blob = new Blob([JSON.stringify({
+        headers: HEADER_TEXTS,
+        rows: rows
+      })], {
+        type: 'application/json;charset=utf-8'
+      });
+      saveAs(blob, this.getFileName(fileNamePattern, 'json'));
+    }
+  }, {
+    key: "exportCSV",
+    value: function exportCSV(fileNamePattern, opt_options) {
+      opt_options = Object(opt_options);
+      var data = this.getData();
+      var columns = data.columns;
+
+      var _this$dataTable$butto2 = this.dataTable.buttons.exportData(),
+          header = _this$dataTable$butto2.header,
+          rows = _this$dataTable$butto2.body;
 
       this.processRows(rows, columns, header, this.getVarsByName());
       var csvText = (0, _helperFunctions.toCSV)(rows.map(function (row) {
@@ -408,7 +483,7 @@ function (_MetricsPanelCtrl) {
 
           return carry;
         }, []);
-      }), {
+      }), _lodash.default.extend({
         headers: columns.reduce(function (carry, col) {
           if (col.visible) {
             carry.push((0, _helperFunctions.getHtmlText)(col.html));
@@ -416,12 +491,21 @@ function (_MetricsPanelCtrl) {
 
           return carry;
         }, [])
-      });
+      }, Object(opt_options)));
+      var ext = (opt_options.ext || 'csv').toLowerCase();
+      var mimeType = 'text/' + (ext === 'tsv' ? 'tab-separated-values' : ext);
       var blob = new Blob([csvText], {
-        type: 'text/csv;charset=utf-8'
+        type: "".concat(mimeType, ";charset=utf-8")
       });
-      var fileName = this.panel.title + JS.formatDate(new Date(), " (YYYY-MM-DD 'at' H.mm.ss).'csv'");
-      saveAs(blob, fileName);
+      saveAs(blob, this.getFileName(fileNamePattern, ext));
+    }
+  }, {
+    key: "getFileName",
+    value: function getFileName(pattern, ext) {
+      var title = this.panel.title;
+      return pattern.replace(/(<TITLE>)|[^<]+|</g, function (match, replaceWithTitle) {
+        return replaceWithTitle ? title : JS.formatDate(new Date(), match);
+      }) + '.' + ext.toLowerCase();
     }
   }, {
     key: "getVarsByName",

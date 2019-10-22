@@ -23,7 +23,11 @@ function toCSV(rows, opt_options) {
   if (opt_options.headers) {
     rows = [opt_options.headers].concat(rows);
   }
-  var nullString = opt_options.hasOwnProperty('nullString') ? opt_options.nullString : '(NULL)';
+  let nullString = opt_options.hasOwnProperty('nullString') ? opt_options.nullString : '(NULL)';
+  let delimiter = opt_options.delimiter || ',';
+  let RGX_DELIMIT = delimiter === ','
+    ? /[",\n\r]/
+    : new RegExp('["\r\n' + JS.quoteRegExp(delimiter) + ']');
   return rows
     .map(function (row) {
       return row.map(function (cell) {
@@ -32,8 +36,8 @@ function toCSV(rows, opt_options) {
             ? cell + ""
             : Object.prototype.toString.call(cell)
           : nullString;
-        return /[",\n\r]/.test(cell) ? '"' + (cell).replace(/"/g, '""') + '"' : cell;
-      }).join(',');
+        return RGX_DELIMIT.test(cell) ? '"' + (cell).replace(/"/g, '""') + '"' : cell;
+      }).join(delimiter);
     })
     .join('\n');
 }
