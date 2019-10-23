@@ -86,6 +86,8 @@
       </gf-form-switch>
     </div>
 
+    <div class="alert alert-info" ng-if="isEditing" ng-cloak>Since you are in editing mode this filter will be saved for all users once you apply it and save the dashboard.</div>
+
     <div class="gf-form-button-row">
       <button type="button" class="btn btn-inverse" ng-click="resetFilter()">
         <i class="fa fa-refresh"></i>&nbsp;Reset Filter

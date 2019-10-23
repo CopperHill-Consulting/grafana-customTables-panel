@@ -76,6 +76,31 @@
         </gf-form-switch>
       </div>
     </div>
+    <div class="gf-form">
+      <label class="gf-form-label width-12">
+        All Date Timezones
+        <tip>
+          The timezone to use to offset the dates so that when they are printed they will print using that timezone.
+        </tip>
+      </label>
+      <select class="gf-form-input"
+        ng-model="ctrl.panel.tzOffsetType"
+        ng-options="t.id as t.text for t in ctrl.getConstByName('TZ_OFFSET_TYPES')"
+        ng-change="ctrl.autoRedraw()">
+      </select>
+    </div>
+    <div class="gf-form" ng-if="ctrl.panel.tzOffsetType === 'TIMEZONE'">
+      <label class="gf-form-label width-12">Minute Offset</label>
+      <input type="number"
+        min="-1440"
+        max="1440"
+        ng-bind:placeholder="'eg. ' + (new Date).getTimezoneOffset()"
+        class="gf-form-input width-max"
+        data-placement="right"
+        ng-model="ctrl.panel.tzOffset"
+        ng-blur="ctrl.autoRedraw()"
+      />
+    </div>
     <div ng-if="ctrl.panel.allowLengthChange">
       <div class="gf-form">
         <label class="gf-form-label width-12">Page Lengths</label>

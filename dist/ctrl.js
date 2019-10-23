@@ -7,6 +7,8 @@ exports.DataTablePanelCtrl = void 0;
 
 var _sdk = require("app/plugins/sdk");
 
+var Core = _interopRequireWildcard(require("app/core/core"));
+
 var _formatValues = require("./format-values");
 
 var _lodash = _interopRequireDefault(require("lodash"));
@@ -29,9 +31,9 @@ require("./external/datatables/css/fixedHeader.dataTables.min.css!");
 
 require("./external/datatables/css/buttons.dataTables.min.css!");
 
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = Object.defineProperty && Object.getOwnPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : {}; if (desc.get || desc.set) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; return newObj; } }
-
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = Object.defineProperty && Object.getOwnPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : {}; if (desc.get || desc.set) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; return newObj; } }
 
 function _typeof(obj) { if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
 
@@ -92,6 +94,9 @@ var TZ_OFFSET_TYPES = [{
   id: 'NO-TIMEZONE',
   text: 'Local Timezone'
 }, {
+  id: 'NO-TIMEZONE-REVERSE',
+  text: 'Reverse Local Timezone'
+}, {
   id: 'TIMEZONE',
   text: 'Specify Minute Offset'
 }];
@@ -140,7 +145,10 @@ var DEFAULT_PANEL_SETTINGS = {
     joinColumn: null,
     nameColumn: null,
     valueColumn: null
-  }
+  },
+  tzOffsetType: null,
+  tzOffset: 0,
+  columnFilters: []
 };
 
 var DataTablePanelCtrl =
@@ -154,6 +162,9 @@ function (_MetricsPanelCtrl) {
     _classCallCheck(this, DataTablePanelCtrl);
 
     _this = _possibleConstructorReturn(this, _getPrototypeOf(DataTablePanelCtrl).call(this, $scope, $injector));
+
+    var ctrl = _assertThisInitialized(_this);
+
     _this.$rootScope = $rootScope; // Make sure old versions have this value set to false.
 
     if (!_lodash.default.has(_this.panel, 'allowRedrawOnModify')) {
@@ -214,7 +225,7 @@ function (_MetricsPanelCtrl) {
       var search = $.fn.dataTable.ext.search;
 
       for (var i = search.length; i--;) {
-        if (search() === this) {
+        if (search[i]() === this) {
           search.splice(i, 1);
         }
       }
@@ -251,12 +262,19 @@ function (_MetricsPanelCtrl) {
   }, {
     key: "onDataReceived",
     value: function onDataReceived(dataList) {
+      var _this$panel = this.panel,
+          tzOffsetType = _this$panel.tzOffsetType,
+          tzOffset = _this$panel.tzOffset;
+      var LOCAL_TZ_OFFSET = new Date().getTimezoneOffset();
+
       if (dataList && dataList.length) {
         dataList.forEach(function (data) {
           data.isReal = true;
           data.rows.forEach(function (cells) {
             cells.forEach(function (cell, cellIndex) {
-              cells[cellIndex] = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/.test(cell) ? new Date(cell) : cell;
+              if (/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/.test(cell)) {
+                cells[cellIndex] = new Date(cell);
+              }
             });
           });
         });
@@ -564,7 +582,8 @@ function (_MetricsPanelCtrl) {
           return result;
         }),
         headerCallback: function headerCallback(tr) {
-          var thIndex = 0;
+          var thIndex = 0; // Loop through each column...
+
           columns.forEach(function (col, colIndex) {
             if (col.visible) {
               var jTH = jQuery('>th', tr).eq(thIndex++).html(col.html);
@@ -575,13 +594,14 @@ function (_MetricsPanelCtrl) {
                   var ID_SUFFIX = +new Date();
 
                   var filterCopy = _lodash.default.extend(_lodash.default.cloneDeep(filter), {
-                    minDate: filter.minDate && JS.formatDate(filter.minDate, 'YYYY-MM-DD HH:mm:ss'),
-                    maxDate: filter.maxDate && JS.formatDate(filter.maxDate, 'YYYY-MM-DD HH:mm:ss')
+                    minDate: (0, _helperFunctions.toLocalDateString)(filter.minDate),
+                    maxDate: (0, _helperFunctions.toLocalDateString)(filter.maxDate)
                   });
 
                   ctrl.publishAppEvent('show-modal', {
                     src: "".concat(PARTIALS_BASE_PATH, "modal-column-filter.html"),
                     scope: _lodash.default.extend(ctrl.$scope.$new(true), {
+                      isEditing: ctrl.dashboard.meta.isEditing,
                       column: _lodash.default.cloneDeep(col),
                       columnDataType: colDataType,
                       ID_SUFFIX: ID_SUFFIX,
@@ -596,8 +616,8 @@ function (_MetricsPanelCtrl) {
 
                         if (colDataType === 'Date' || colDataType === 'Number' || colDataType === 'BigInt') {
                           if (colDataType === 'Date') {
-                            filter.minDate = (0, _helperFunctions.parseLocalDate)(scopeFilter.filter.minDate);
-                            filter.maxDate = (0, _helperFunctions.parseLocalDate)(scopeFilter.filter.maxDate);
+                            filter.minDate = (0, _helperFunctions.parseLocalDate)(scopeFilter.filter.minDate, ctrl, true);
+                            filter.maxDate = (0, _helperFunctions.parseLocalDate)(scopeFilter.filter.maxDate, ctrl, true);
                           } else {
                             filter.minNum = (0, _helperFunctions.parseOptionalNumber)(scopeFilter.filter.minNum);
                             filter.maxNum = (0, _helperFunctions.parseOptionalNumber)(scopeFilter.filter.maxNum);
@@ -620,7 +640,35 @@ function (_MetricsPanelCtrl) {
 
                         filter.includeNull = scopeFilter.filter.includeNull;
                         filter.negate = scopeFilter.filter.negate;
-                        filter.ignore = ignore && !filter.includeNull;
+                        filter.ignore = ignore && !filter.includeNull; // Save column filters only if editor mode
+
+                        if (ctrl.dashboard.meta.isEditing) {
+                          ctrl.panel.columnFilters = columns.reduce(function (columnFilters, column) {
+                            var filter;
+
+                            if (column.visible && (filter = column.filter) && !filter.ignore) {
+                              columnFilters.push({
+                                columnText: column.text,
+                                ignore: filter.ignore,
+                                negate: filter.negate,
+                                text: filter.text,
+                                includeTrue: filter.includeTrue,
+                                includeFalse: filter.includeFalse,
+                                includeNull: filter.includeNull,
+                                minNum: filter.minNum,
+                                maxNum: filter.maxNum,
+                                minDate: (0, _helperFunctions.toLocalDateString)(filter.minDate),
+                                maxDate: (0, _helperFunctions.toLocalDateString)(filter.maxDate),
+                                includeMin: filter.includeMin,
+                                includeMax: filter.includeMax,
+                                dataType: filter.dataType
+                              });
+                            }
+
+                            return columnFilters;
+                          }, []);
+                        }
+
                         ctrl.dataTable.draw();
                         this.dismiss();
                       },
@@ -634,7 +682,7 @@ function (_MetricsPanelCtrl) {
 
                 var filter = col.filter;
 
-                var colDataType = _lodash.default.get(col, 'filter.dataType', 'String');
+                var colDataType = _lodash.default.get(filter, 'dataType', 'String');
 
                 jTH.prepend(JS.dom({
                   _: 'i',
@@ -1067,8 +1115,9 @@ function (_MetricsPanelCtrl) {
 
             return true;
           }
-        });
-        column.filter = {
+        }); // Initialize the filter object...
+
+        var filter = column.filter = {
           ignore: true,
           negate: false,
           text: '',
@@ -1084,35 +1133,64 @@ function (_MetricsPanelCtrl) {
           dataType: JS.nativeType((rows.find(function (row) {
             return row[colIndex] != undefined;
           }) || [])[colIndex]),
-          test: function test(value) {
-            var negate = this.negate,
-                text = this.text,
-                includeTrue = this.includeTrue,
-                includeFalse = this.includeFalse,
-                includeNull = this.includeNull,
-                minNum = this.minNum,
-                maxNum = this.maxNum,
-                minDate = this.minDate,
-                maxDate = this.maxDate,
-                includeMin = this.includeMin,
-                includeMax = this.includeMax,
-                dataType = this.dataType;
-            var min = minNum != undefined ? minNum : minDate;
-            var max = maxNum != undefined ? maxNum : maxDate;
-
-            if (dataType === 'Date' || dataType === 'Number' || dataType === 'BigInt') {
-              return (value == undefined ? includeNull : (min == undefined || (includeMin ? min <= value : min < value)) && (max == undefined || (includeMax ? value <= max : value < max))) !== negate;
-            } else if (dataType === 'Boolean') {
-              return (includeTrue && value || includeFalse && !value || includeNull && value == undefined) !== negate;
-            }
-
-            return (this.matchTerms(value) || includeNull && value == undefined) !== negate;
-          },
           matchTerms: function matchTerms() {
             return true;
           }
-        };
-        column.filter.test = column.filter.test.bind(column.filter);
+        }; // Add the test() function to the filter object while binding the filter
+        // object to the test() function.
+
+        filter.test = function (value) {
+          var negate = this.negate,
+              text = this.text,
+              includeTrue = this.includeTrue,
+              includeFalse = this.includeFalse,
+              includeNull = this.includeNull,
+              minNum = this.minNum,
+              maxNum = this.maxNum,
+              minDate = this.minDate,
+              maxDate = this.maxDate,
+              includeMin = this.includeMin,
+              includeMax = this.includeMax,
+              dataType = this.dataType;
+          var min = minDate != undefined ? minDate.actual : minNum;
+          var max = maxDate != undefined ? maxDate.actual : maxNum;
+
+          if (dataType === 'Date' || dataType === 'Number' || dataType === 'BigInt') {
+            return (value == undefined ? includeNull : (min == undefined || (includeMin ? min <= value : min < value)) && (max == undefined || (includeMax ? value <= max : value < max))) !== negate;
+          } else if (dataType === 'Boolean') {
+            return (includeTrue && value || includeFalse && !value || includeNull && value == undefined) !== negate;
+          }
+
+          return (this.matchTerms(value) || includeNull && value == undefined) !== negate;
+        }.bind(filter); // If the column is visible, try to attach the saved column filter by
+        // matching on the column text and the column data type.
+
+
+        if (column.visible) {
+          var columnFilter = ctrl.panel.columnFilters.find(function (columnFilter) {
+            var result = filter.dataType === columnFilter.dataType && column.text === columnFilter.columnText;
+
+            if (result) {
+              _lodash.default.extend(filter, {
+                ignore: columnFilter.ignore,
+                negate: columnFilter.negate,
+                text: columnFilter.text,
+                includeTrue: columnFilter.includeTrue,
+                includeFalse: columnFilter.includeFalse,
+                includeNull: columnFilter.includeNull,
+                minNum: columnFilter.minNum,
+                maxNum: columnFilter.maxNum,
+                minDate: (0, _helperFunctions.parseLocalDate)(columnFilter.minDate, ctrl, true),
+                maxDate: (0, _helperFunctions.parseLocalDate)(columnFilter.maxDate, ctrl, true),
+                includeMin: columnFilter.includeMin,
+                includeMax: columnFilter.includeMax,
+                dataType: columnFilter.dataType
+              });
+            }
+
+            return result;
+          });
+        }
 
         if (!_lodash.default.has(column, 'html')) {
           column.html = _lodash.default.escape(column.text);

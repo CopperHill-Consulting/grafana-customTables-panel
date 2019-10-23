@@ -11,7 +11,9 @@ import {
   getHtmlText,
   term,
   parseLocalDate,
-  parseOptionalNumber
+  parseOptionalNumber,
+  offsetByTZ,
+  toLocalDateString
 } from './helper-functions';
 import './external/datatables/js/jquery.dataTables.min';
 import './external/datatables/js/dataTables.fixedHeader.min';
@@ -81,6 +83,7 @@ const CONTENT_RULE_CLASS_LEVELS = [
 const TZ_OFFSET_TYPES = [
   { id: null, text: 'Default' },
   { id: 'NO-TIMEZONE', text: 'Local Timezone' },
+  { id: 'NO-TIMEZONE-REVERSE', text: 'Reverse Local Timezone' },
   { id: 'TIMEZONE', text: 'Specify Minute Offset' }
 ];
 
@@ -119,7 +122,10 @@ const DEFAULT_PANEL_SETTINGS = {
     joinColumn: null,
     nameColumn: null,
     valueColumn: null
-  }
+  },
+  tzOffsetType: null,
+  tzOffset: 0,
+  columnFilters: []
 };
 
 export class DataTablePanelCtrl extends MetricsPanelCtrl {
@@ -195,7 +201,7 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
   onDataTablePanelTeardown() {
     let {search} = $.fn.dataTable.ext;
     for (var i = search.length; i--; ) {
-      if (search() === this) {
+      if (search[i]() === this) {
         search.splice(i, 1);
       }
     }
@@ -227,14 +233,16 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
   }
 
   onDataReceived(dataList) {
+    let { tzOffsetType, tzOffset } = this.panel;
+    const LOCAL_TZ_OFFSET = (new Date).getTimezoneOffset();
     if (dataList && dataList.length) {
       dataList.forEach(data => {
         data.isReal = true;
         data.rows.forEach(cells => {
           cells.forEach((cell, cellIndex) => {
-            cells[cellIndex] = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/.test(cell)
-              ? new Date(cell)
-              : cell;
+            if (/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/.test(cell)) {
+              cells[cellIndex] = new Date(cell);
+            }
           });
         });
       });
@@ -406,7 +414,7 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
 
   exportCSV(fileNamePattern, opt_options) {
     opt_options = Object(opt_options);
-    
+
     let data = this.getData();
     let { columns } = data;
     let { header, body: rows } = this.dataTable.buttons.exportData();
@@ -497,12 +505,14 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
       }),
       headerCallback(tr) {
         let thIndex = 0;
+
+        // Loop through each column...
         columns.forEach((col, colIndex) => {
           if (col.visible) {
             let jTH = jQuery('>th', tr).eq(thIndex++).html(col.html);
             if (panel.allowFiltering && (!col.colDef || col.colDef.isSearchable)) {
               let { filter } = col;
-              let colDataType = _.get(col, 'filter.dataType', 'String');
+              let colDataType = _.get(filter, 'dataType', 'String');
 
               function showFilterModal(e) {
                 e && e.stopPropagation();
@@ -512,10 +522,8 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
                 let filterCopy = _.extend(
                   _.cloneDeep(filter),
                   {
-                    minDate: filter.minDate
-                      && JS.formatDate(filter.minDate, 'YYYY-MM-DD HH:mm:ss'),
-                    maxDate: filter.maxDate
-                      && JS.formatDate(filter.maxDate, 'YYYY-MM-DD HH:mm:ss')
+                    minDate: toLocalDateString(filter.minDate),
+                    maxDate: toLocalDateString(filter.maxDate)
                   }
                 );
 
@@ -524,6 +532,7 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
                   scope: _.extend(
                     ctrl.$scope.$new(true),
                     {
+                      isEditing: ctrl.dashboard.meta.isEditing,
                       column: _.cloneDeep(col),
                       columnDataType: colDataType,
                       ID_SUFFIX,
@@ -537,8 +546,8 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
                         let ignore;
                         if (colDataType === 'Date' || colDataType === 'Number' || colDataType === 'BigInt') {
                           if (colDataType === 'Date') {
-                            filter.minDate = parseLocalDate(scopeFilter.filter.minDate);
-                            filter.maxDate = parseLocalDate(scopeFilter.filter.maxDate);
+                            filter.minDate = parseLocalDate(scopeFilter.filter.minDate, ctrl, true);
+                            filter.maxDate = parseLocalDate(scopeFilter.filter.maxDate, ctrl, true);
                           }
                           else {
                             filter.minNum = parseOptionalNumber(scopeFilter.filter.minNum);
@@ -562,6 +571,33 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
                         filter.includeNull = scopeFilter.filter.includeNull;
                         filter.negate = scopeFilter.filter.negate;
                         filter.ignore = ignore && !filter.includeNull;
+
+                        // Save column filters only if in editor mode
+                        if (ctrl.dashboard.meta.isEditing) {
+                          ctrl.panel.columnFilters = columns.reduce((columnFilters, column) => {
+                            let filter;
+                            if (column.visible && (filter = column.filter) && !filter.ignore) {
+                              columnFilters.push({
+                                columnText: column.text,
+                                ignore: filter.ignore,
+                                negate: filter.negate,
+                                text: filter.text,
+                                includeTrue: filter.includeTrue,
+                                includeFalse: filter.includeFalse,
+                                includeNull: filter.includeNull,
+                                minNum: filter.minNum,
+                                maxNum: filter.maxNum,
+                                minDate: toLocalDateString(filter.minDate),
+                                maxDate: toLocalDateString(filter.maxDate),
+                                includeMin: filter.includeMin,
+                                includeMax: filter.includeMax,
+                                dataType: filter.dataType
+                              });
+                            }
+                            return columnFilters;
+                          }, []);
+                        }
+
                         ctrl.dataTable.draw();
                         this.dismiss();
                       },
@@ -953,7 +989,8 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
         }
       });
 
-      column.filter = {
+      // Initialize the filter object...
+      let filter = column.filter = {
         ignore: true,
         negate: false,
         text: '',
@@ -967,32 +1004,66 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
         includeMin: false,
         includeMax: false,
         dataType: JS.nativeType((rows.find(row => row[colIndex] != undefined) || [])[colIndex]),
-        test(value) {
-          let { negate, text, includeTrue, includeFalse, includeNull, minNum, maxNum, minDate, maxDate, includeMin, includeMax, dataType } = this;
-          let min = minNum != undefined ? minNum : minDate;
-          let max = maxNum != undefined ? maxNum : maxDate;
-          if (dataType === 'Date' || dataType === 'Number' || dataType === 'BigInt') {
-            return (
-              value == undefined
-                ? includeNull
-                : (
-                  (min == undefined || (includeMin ? min <= value : (min < value)))
-                  && (max == undefined || (includeMax ? value <= max : (value < max)))
-                )
-            ) !== negate;
-          }
-          else if (dataType === 'Boolean') {
-            return (
-              (includeTrue && value)
-              || (includeFalse && !value)
-              || (includeNull && value == undefined)
-            ) !== negate;
-          }
-          return (this.matchTerms(value) || (includeNull && value == undefined)) !== negate;
-        },
         matchTerms() { return true; }
       };
-      column.filter.test = column.filter.test.bind(column.filter);
+
+      // Add the test() function to the filter object while binding the filter
+      // object to the test() function.
+      filter.test = (function (value) {
+        let { negate, text, includeTrue, includeFalse, includeNull, minNum, maxNum, minDate, maxDate, includeMin, includeMax, dataType } = this;
+        let min = minDate != undefined ? minDate.actual : minNum;
+        let max = maxDate != undefined ? maxDate.actual : maxNum;
+        if (dataType === 'Date' || dataType === 'Number' || dataType === 'BigInt') {
+          return (
+            value == undefined
+              ? includeNull
+              : (
+                (min == undefined || (includeMin ? min <= value : (min < value)))
+                && (max == undefined || (includeMax ? value <= max : (value < max)))
+              )
+          ) !== negate;
+        }
+        else if (dataType === 'Boolean') {
+          return (
+            (includeTrue && value)
+            || (includeFalse && !value)
+            || (includeNull && value == undefined)
+          ) !== negate;
+        }
+        return (this.matchTerms(value) || (includeNull && value == undefined)) !== negate;
+      }).bind(filter);
+
+      // If the column is visible, try to attach the saved column filter by
+      // matching on the column text and the column data type.
+      if (column.visible) {
+        let columnFilter = ctrl.panel.columnFilters.find(
+          (columnFilter) => {
+            let result = filter.dataType === columnFilter.dataType
+              && column.text === columnFilter.columnText;
+            if (result) {
+              _.extend(
+                filter,
+                {
+                  ignore: columnFilter.ignore,
+                  negate: columnFilter.negate,
+                  text: columnFilter.text,
+                  includeTrue: columnFilter.includeTrue,
+                  includeFalse: columnFilter.includeFalse,
+                  includeNull: columnFilter.includeNull,
+                  minNum: columnFilter.minNum,
+                  maxNum: columnFilter.maxNum,
+                  minDate: parseLocalDate(columnFilter.minDate, ctrl, true),
+                  maxDate: parseLocalDate(columnFilter.maxDate, ctrl, true),
+                  includeMin: columnFilter.includeMin,
+                  includeMax: columnFilter.includeMax,
+                  dataType: columnFilter.dataType
+                }
+              );
+            }
+            return result;
+          }
+        );
+      }
 
       if (!_.has(column, 'html')) {
         column.html = _.escape(column.text);

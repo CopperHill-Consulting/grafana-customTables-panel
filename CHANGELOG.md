@@ -1,7 +1,8 @@
 # Changelog
 
 - **v0.4.0**
-  - Added filterable columns.
+  - Added filterable columns that can be saved when in edit mode.
+  - Added default timezone for dates that apply to DB data and filters.
   - Added "Download As..." Modal.
     - CSV
     - JSON

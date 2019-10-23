@@ -6,6 +6,8 @@ const RGX_OLD_VAR_WORKAROUND = /([\?&])var-(\$\{var:(?:[^\}:\\]*|\\.)+:param\})/
 const RGX_ESCAPED_CHARS = /\\(.)/g;
 const RGX_LOOSE_DATE = /^(\d{4})-(\d\d?)-(\d\d?)(?:(?:T|\s+)(\d\d?):(\d\d?)(?::(\d\d?)(?:\.(\d\d?\d?))?)?)?$/;
 
+const LOCAL_TZ_OFFSET = (new Date).getTimezoneOffset();
+
 /**
  * Converts an array of arrays of values to a CSV string.
  * @param rows {Array<Array>}
@@ -83,7 +85,7 @@ function pseudoCssToJSON(strLess) {
 
 function offsetByTZ(date, opt_tzOffset) {
   date = new Date(date);
-  opt_tzOffset = opt_tzOffset == null ? date.getTimezoneOffset() : opt_tzOffset;
+  opt_tzOffset = opt_tzOffset == null ? LOCAL_TZ_OFFSET : opt_tzOffset;
   return new Date(+date + opt_tzOffset * 6e4);
 }
 
@@ -99,11 +101,21 @@ function getCellValue(valToMod, isForLink, options) {
   let { from, to } = ctrl.timeSrv.timeRangeForUrl();
 
   if (/^dateTime/.test(unitFormat)) {
-    let date = tzOffsetType === 'NO-TIMEZONE'
-      ? offsetByTZ(cell)
-      : tzOffsetType === 'TIMEZONE'
-        ? offsetByTZ(cell, tzOffset)
-        : new Date(cell);
+    if (ctrl.panel.tzOffsetType) {
+      tzOffsetType = ctrl.panel.tzOffsetType;
+      tzOffset = ctrl.panel.tzOffset;
+    }
+    // Do not apply another offset if global offset was used on receiving the data.
+    let date = tzOffsetType
+      ? offsetByTZ(
+          cell,
+          tzOffsetType === 'TIMEZONE'
+            ? tzOffset
+            : tzOffsetType === 'NO-TIMEZONE'
+              ? LOCAL_TZ_OFFSET
+              : -LOCAL_TZ_OFFSET
+        )
+      : new Date(cell);
     matches.value = getValueFormat(unitFormat)(date, unitFormatString);
   }
   else {
@@ -249,11 +261,28 @@ function term(strTerm, opt_options) {
   };
 }
 
-function parseLocalDate(strDate) {
+function parseLocalDate(strDate, opt_ctrl, opt_negateTzOffset) {
   let match = RGX_LOOSE_DATE.exec(strDate);
   if (match) {
-    return new Date(+match[1], +match[2] - 1, +match[3], +match[4] || 0, +match[5] || 0, +match[6] || 0, +match[7] || 0);
+    let date = new Date(+match[1], +match[2] - 1, +match[3], +match[4] || 0, +match[5] || 0, +match[6] || 0, +match[7] || 0);
+    date.actual = (opt_ctrl && opt_ctrl.panel.tzOffsetType)
+      ? offsetByTZ(
+          date,
+          (opt_negateTzOffset ? -1 : 1) * (
+            opt_ctrl.panel.tzOffsetType === 'TIMEZONE'
+              ? opt_ctrl.panel.tzOffset
+              : opt_ctrl.panel.tzOffsetType === 'NO-TIMEZONE'
+                ? LOCAL_TZ_OFFSET
+                : -LOCAL_TZ_OFFSET
+          )
+        )
+      : date;
+    return date;
   }
+}
+
+function toLocalDateString(date) {
+  return date && JS.formatDate(date, 'YYYY-MM-DD HH:mm:ss');
 }
 
 function parseOptionalNumber(strNum) {
@@ -275,5 +304,7 @@ module.exports = {
   getHtmlText,
   term,
   parseLocalDate,
-  parseOptionalNumber
+  parseOptionalNumber,
+  offsetByTZ,
+  toLocalDateString
 };
