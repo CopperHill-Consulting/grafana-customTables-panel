@@ -7,8 +7,6 @@ exports.DataTablePanelCtrl = void 0;
 
 var _sdk = require("app/plugins/sdk");
 
-var Core = _interopRequireWildcard(require("app/core/core"));
-
 var _formatValues = require("./format-values");
 
 var _lodash = _interopRequireDefault(require("lodash"));
@@ -31,9 +29,9 @@ require("./external/datatables/css/fixedHeader.dataTables.min.css!");
 
 require("./external/datatables/css/buttons.dataTables.min.css!");
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-
 function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = Object.defineProperty && Object.getOwnPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : {}; if (desc.get || desc.set) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } } newObj.default = obj; return newObj; } }
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function _typeof(obj) { if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
 
@@ -162,9 +160,6 @@ function (_MetricsPanelCtrl) {
     _classCallCheck(this, DataTablePanelCtrl);
 
     _this = _possibleConstructorReturn(this, _getPrototypeOf(DataTablePanelCtrl).call(this, $scope, $injector));
-
-    var ctrl = _assertThisInitialized(_this);
-
     _this.$rootScope = $rootScope; // Make sure old versions have this value set to false.
 
     if (!_lodash.default.has(_this.panel, 'allowRedrawOnModify')) {
@@ -640,7 +635,7 @@ function (_MetricsPanelCtrl) {
 
                         filter.includeNull = scopeFilter.filter.includeNull;
                         filter.negate = scopeFilter.filter.negate;
-                        filter.ignore = ignore && !filter.includeNull; // Save column filters only if editor mode
+                        filter.ignore = ignore && !filter.includeNull; // Save column filters only if in editor mode
 
                         if (ctrl.dashboard.meta.isEditing) {
                           ctrl.panel.columnFilters = columns.reduce(function (columnFilters, column) {
@@ -770,7 +765,7 @@ function (_MetricsPanelCtrl) {
       for (var row, rowCount = rows.length, rowIndex = 0; rowIndex < rowCount; rowIndex++) {
         row = rows[rowIndex];
 
-        if (!row.isProcessed && 0 in row && !row[0].isProcessed) {
+        if (!row.isProcessed && !(row[0] || {}).isProcessed) {
           var _loop = function _loop(_cell, _cellValue, tdIndex, cellCount, colIndex) {
             var ruleApplied = void 0;
             var column = columns[colIndex];

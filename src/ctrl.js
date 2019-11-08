@@ -690,7 +690,7 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
 
     for (let row, rowCount = rows.length, rowIndex = 0; rowIndex < rowCount; rowIndex++) {
       row = rows[rowIndex];
-      if (!row.isProcessed && (0 in row) && !row[0].isProcessed) {
+      if (!row.isProcessed && !(row[0] || {}).isProcessed) {
         for (let cell, cellValue, tdIndex = 0, cellCount = row.length, colIndex = 0; colIndex < cellCount; colIndex++) {
           let ruleApplied;
           let column = columns[colIndex];

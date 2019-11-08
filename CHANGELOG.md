@@ -1,5 +1,8 @@
 # Changelog
 
+- **v0.4.1**
+  - Fix `No data: Cannot read property 'isProcessed' of null` error which was caused when the first column in a row is `NULL`.
+
 - **v0.4.0**
   - Added filterable columns that can be saved when in edit mode.
   - Added default timezone for dates that apply to DB data and filters.
