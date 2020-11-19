@@ -296,7 +296,7 @@ function parseOptionalNumber(strNum) {
   }
 }
 
-module.exports = {
+export {
   toCSV,
   parseRegExp,
   pseudoCssToJSON,

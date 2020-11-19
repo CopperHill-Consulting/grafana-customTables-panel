@@ -1,4 +1,4 @@
-import { getValueFormat, getValueFormats } from '@grafana/ui';
+import { getValueFormat, getValueFormats } from "@grafana/data";
 import * as JS from './external/YourJS.min';
 
 const GRAFANA_FORMATS = getValueFormats().map(item => {
@@ -15,7 +15,7 @@ function getGrafanaFormats() {
 function getGrafanaFormat(formatName) {
   return formatName === 'dateTimeYourJS'
     ? (date, format) => JS.formatDate(date, format || '')
-    : getValueFormat(formatName);
+    : getValueFormat(formatName).text;
 }
 
-module.exports = { getValueFormats: getGrafanaFormats, getValueFormat: getGrafanaFormat };
+export { getGrafanaFormats as getValueFormats, getGrafanaFormat as getValueFormat };
