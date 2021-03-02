@@ -1,5 +1,8 @@
 # Changelog
 
+- **v0.5.1**
+  - Fixed custom format issues.
+
 - **v0.5.0**
   - Updates to make this work with Grafana 7.2.1.
 

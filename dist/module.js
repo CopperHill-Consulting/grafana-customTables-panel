@@ -7028,17 +7028,15 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _external_YourJS_min__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./external/YourJS.min */ "./external/YourJS.min.js");
 /* harmony import */ var _external_YourJS_min__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(_external_YourJS_min__WEBPACK_IMPORTED_MODULE_1__);
 
+ // Add our custom CHC functionality to the list of unit formats.
 
-var GRAFANA_FORMATS = Object(_grafana_data__WEBPACK_IMPORTED_MODULE_0__["getValueFormats"])().map(function (item) {
-  if (item.text === 'Date & Time') {
-    item.submenu.unshift({
-      text: 'Custom Format',
-      value: 'dateTimeYourJS'
-    });
-  }
-
-  return item;
-});
+var GRAFANA_FORMATS = Object(_grafana_data__WEBPACK_IMPORTED_MODULE_0__["getValueFormats"])().concat([{
+  text: 'Advanced (CHC)',
+  submenu: [{
+    text: 'Custom Date Format',
+    value: 'dateTimeYourJS'
+  }]
+}]);
 
 function getGrafanaFormats() {
   return GRAFANA_FORMATS;
@@ -7046,8 +7044,10 @@ function getGrafanaFormats() {
 
 function getGrafanaFormat(formatName) {
   return formatName === 'dateTimeYourJS' ? function (date, format) {
-    return _external_YourJS_min__WEBPACK_IMPORTED_MODULE_1__["formatDate"](date, format || '');
-  } : Object(_grafana_data__WEBPACK_IMPORTED_MODULE_0__["getValueFormat"])(formatName).text;
+    return {
+      text: _external_YourJS_min__WEBPACK_IMPORTED_MODULE_1__["formatDate"](date, format || '')
+    };
+  } : Object(_grafana_data__WEBPACK_IMPORTED_MODULE_0__["getValueFormat"])(formatName);
 }
 
 
@@ -7194,9 +7194,9 @@ function getCellValue(valToMod, isForLink, options) {
 
 
     var date = tzOffsetType ? offsetByTZ(cell, tzOffsetType === 'TIMEZONE' ? tzOffset : tzOffsetType === 'NO-TIMEZONE' ? LOCAL_TZ_OFFSET : -LOCAL_TZ_OFFSET) : new Date(cell);
-    matches.value = Object(_format_values__WEBPACK_IMPORTED_MODULE_1__["getValueFormat"])(unitFormat)(date, unitFormatString);
+    matches.value = Object(_format_values__WEBPACK_IMPORTED_MODULE_1__["getValueFormat"])(unitFormat)(date, unitFormatString).text;
   } else {
-    matches.value = matches.cell = !['none', null, void 0].includes(unitFormat) && 'number' === typeof cell ? Object(_format_values__WEBPACK_IMPORTED_MODULE_1__["getValueFormat"])(unitFormat)(cell, unitFormatDecimals, null) : cell;
+    matches.value = matches.cell = !['none', null, void 0].includes(unitFormat) && 'number' === typeof cell ? Object(_format_values__WEBPACK_IMPORTED_MODULE_1__["getValueFormat"])(unitFormat)(cell, unitFormatDecimals, null).text : cell;
   }
 
   return valToMod.replace(RGX_OLD_VAR_WORKAROUND, '$1$2').replace(RGX_CELL_PLACEHOLDER, function (match0, isTime, opt_timePart, matchesKey, isColOrVar, name, isRaw, isEscape, isParam, paramName) {

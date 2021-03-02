@@ -116,11 +116,11 @@ function getCellValue(valToMod, isForLink, options) {
               : -LOCAL_TZ_OFFSET
         )
       : new Date(cell);
-    matches.value = getValueFormat(unitFormat)(date, unitFormatString);
+    matches.value = getValueFormat(unitFormat)(date, unitFormatString).text;
   }
   else {
     matches.value = matches.cell = (!['none', null, void 0].includes(unitFormat) && 'number' === typeof cell)
-      ? getValueFormat(unitFormat)(cell, unitFormatDecimals, null)
+      ? getValueFormat(unitFormat)(cell, unitFormatDecimals, null).text
       : cell
   }
 
