@@ -29,7 +29,7 @@ Install module dependencies:
 yarn
 ```
 
-Build plugin in production mode:
+Build plugin in production mode (**PROBLEMATIC**):
 
 ```BASH
 yarn build

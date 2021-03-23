@@ -2,7 +2,7 @@ import { MetricsPanelCtrl } from 'grafana/app/plugins/sdk';
 import { getValueFormats } from './format-values';
 import _ from 'lodash';
 import * as JS from './external/YourJS.min';
-import * as saveAs from './external/FileSaver.min.js';
+import { saveAs } from './external/FileSaver.min.js';
 import {
   toCSV,
   parseRegExp,

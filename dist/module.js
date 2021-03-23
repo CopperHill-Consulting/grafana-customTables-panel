@@ -7686,7 +7686,7 @@ function (_super) {
     })], {
       type: 'application/json;charset=utf-8'
     });
-    _external_FileSaver_min_js__WEBPACK_IMPORTED_MODULE_5__(blob, this.getFileName(fileNamePattern, 'json'));
+    Object(_external_FileSaver_min_js__WEBPACK_IMPORTED_MODULE_5__["saveAs"])(blob, this.getFileName(fileNamePattern, 'json'));
   };
 
   DataTablePanelCtrl.prototype.exportCSV = function (fileNamePattern, opt_options) {
@@ -7721,7 +7721,7 @@ function (_super) {
     var blob = new Blob([csvText], {
       type: mimeType + ";charset=utf-8"
     });
-    _external_FileSaver_min_js__WEBPACK_IMPORTED_MODULE_5__(blob, this.getFileName(fileNamePattern, ext));
+    Object(_external_FileSaver_min_js__WEBPACK_IMPORTED_MODULE_5__["saveAs"])(blob, this.getFileName(fileNamePattern, ext));
   };
 
   DataTablePanelCtrl.prototype.getFileName = function (pattern, ext) {

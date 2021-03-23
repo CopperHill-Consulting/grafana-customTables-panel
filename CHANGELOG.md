@@ -1,5 +1,8 @@
 # Changelog
 
+- **v0.5.2**
+  - Fixed "Save As" issue.
+
 - **v0.5.1**
   - Fixed custom format issues.
 
