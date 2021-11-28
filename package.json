@@ -1,7 +1,7 @@
 {
   "name": "copperhill-datatables-panel",
   "private": true,
-  "version": "0.5.2",
+  "version": "0.6.0",
   "description": "",
   "scripts": {
     "build": "grafana-toolkit plugin:build",

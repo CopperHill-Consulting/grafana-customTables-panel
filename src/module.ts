@@ -173,9 +173,8 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
         ? this.columns.every(function(column, columnIndex) {
             let { filter } = column;
             return (
-              !column.colDef ||
               !column.visible ||
-              !column.colDef.isSearchable ||
+              column?.colDef?.isSearchable === false ||
               !filter ||
               filter.ignore ||
               filter.test(originalData[columnIndex].value)
@@ -184,9 +183,8 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
         : this.columns.every(function(column, columnIndex) {
             let { filter } = column;
             return (
-              !column.colDef ||
               !column.visible ||
-              !column.colDef.isSearchable ||
+              column?.colDef?.isSearchable === false ||
               !filter ||
               filter.ignore ||
               filter.test(originalData[columnIndex])
@@ -380,19 +378,22 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
         EXPORT_TYPES: [
           { value: 'CSV', text: 'CSV (Comma-separated values)' },
           { value: 'JSON', text: 'JSON (JavaScript Object Notation)' },
+          { value: 'PSV', text: 'PSV (Pipe-separated values)' },
           { value: 'TSV', text: 'TSV (Tab-separated values)' },
         ],
         exportType: 'CSV',
         getFileName() {
           return ctrl.getFileName(this.fileNamePattern, this.exportType);
         },
-        download() {
+        download(downloadAllData: boolean) {
           if (this.exportType === 'CSV') {
-            ctrl.exportCSV(this.fileNamePattern);
+            ctrl.exportCSV(downloadAllData, this.fileNamePattern);
           } else if (this.exportType === 'JSON') {
-            ctrl.exportJSON(this.fileNamePattern);
+            ctrl.exportJSON(downloadAllData, this.fileNamePattern);
+          } else if (this.exportType === 'PSV') {
+            ctrl.exportCSV(downloadAllData, this.fileNamePattern, { delimiter: '|', ext: 'psv' });
           } else if (this.exportType === 'TSV') {
-            ctrl.exportCSV(this.fileNamePattern, { delimiter: '\t', ext: 'tsv' });
+            ctrl.exportCSV(downloadAllData, this.fileNamePattern, { delimiter: '\t', ext: 'tsv' });
           }
         },
       }),
@@ -400,13 +401,31 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
     });
   }
 
-  exportJSON(fileNamePattern) {
-    let data = this.getData();
-    let { columns } = data;
-    let { header, body } = this.dataTable.buttons.exportData();
+  exportData(exportAllData: boolean) {
+    let header,
+      rows,
+      data = this.getData(),
+      { columns } = data;
+    if (exportAllData) {
+      header = this.dataTable
+        .columns()
+        .header()
+        .toArray()
+        .map(x => x.innerText);
+      rows = Array.from(this.dataTable.data());
+    } else {
+      let exportedData = this.dataTable.buttons.exportData();
+      header = exportedData.header;
+      rows = exportedData.body;
+    }
+    return { header, rows, data, columns };
+  }
+
+  exportJSON(exportAllData: boolean, fileNamePattern: string) {
+    let { columns, data, header, rows } = this.exportData(exportAllData);
     const HEADER_TEXTS = columns.filter(c => c.visible).map(c => getHtmlText(c.html));
-    this.processRows(body, columns, header, this.getVarsByName());
-    let rows = body.map(row =>
+    this.processRows(rows, columns, header, this.getVarsByName());
+    rows = rows.map(row =>
       row.reduce((objRow, cell, cellIndex) => {
         if (cell.visible) {
           objRow[HEADER_TEXTS[cellIndex]] = getHtmlText(cell.html);
@@ -418,12 +437,10 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
     saveAs(blob, this.getFileName(fileNamePattern, 'json'));
   }
 
-  exportCSV(fileNamePattern, opt_options?) {
+  exportCSV(exportAllData: boolean, fileNamePattern: string, opt_options?) {
     opt_options = Object(opt_options);
 
-    let data = this.getData();
-    let { columns } = data;
-    let { header, body: rows } = this.dataTable.buttons.exportData();
+    let { columns, data, header, rows } = this.exportData(exportAllData);
     this.processRows(rows, columns, header, this.getVarsByName());
 
     let csvText = toCSV(
@@ -456,8 +473,12 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
   getFileName(pattern, ext) {
     let { title } = this.panel;
     return (
-      pattern.replace(/(<TITLE>)|[^<]+|</g, (match, replaceWithTitle) =>
-        replaceWithTitle ? title : JS.formatDate(new Date(), match)
+      pattern.replace(/<(TITLE|DASHBOARD|PANEL)>|[^<]+|</g, (match, source) =>
+        source
+          ? source === 'TITLE'
+            ? this.panel.title || this.dashboard.title
+            : this[source.toLowerCase()].title
+          : JS.formatDate(new Date(), match)
       ) +
       '.' +
       ext.toLowerCase()
@@ -679,6 +700,7 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
       order: [],
     };
     ctrl.dataTable = jTable.DataTable(dataTableOpts);
+    globalThis[`ctrl${+new Date()}`] = ctrl;
 
     // Horizontally center tables that are not full page width.
     jElem.find('.dataTables_scrollHeadInner').css('margin', '0 auto');

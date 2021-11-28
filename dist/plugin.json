@@ -17,8 +17,8 @@
     "links": [
       {"name": "GitHub Repo", "url": "https://github.com/CopperHill-Consulting/grafana-customTables-panel.git"}
     ],
-    "version": "0.5.2",
-    "updated": "2021-03-23"
+    "version": "0.6.0",
+    "updated": "2021-11-28"
   },
 
   "dependencies": {

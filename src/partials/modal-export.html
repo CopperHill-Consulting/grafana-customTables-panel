@@ -30,8 +30,18 @@
           readonly
         />
     </div>
+    <h3>File Name Tips</h3>
+    <ul style="margin-left: 1em;">
+      <li><code>&lt;DASHBOARD&gt;</code> will be replaced with the title of dashboard.</li>
+      <li><code>&lt;PANEL&gt;</code> will be replaced with the title of this panel.</li>
+      <li><code>&lt;TITLE&gt;</code> will be replaced with either the title of this panel or if it doesn't have a title it will be replaced with the title of dashboard.</li>
+      <li>Letter combinations that normally refer to date/time parts will be replaced with those date/time parts unless wrapped in single quotes.</li>
+    </ul>
     <div class="gf-form-button-row">
-      <button type="button" class="btn btn-secondary" ng-click="download()">
+      <button type="button" class="btn btn-secondary" ng-click="download(true)">
+        Download All As {{exportType}}
+      </button>
+      <button type="button" class="btn btn-secondary" ng-click="download(false)">
         Download As {{exportType}}
       </button>
     </div>

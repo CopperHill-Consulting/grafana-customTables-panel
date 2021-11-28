@@ -7425,11 +7425,15 @@ function (_super) {
 
   DataTablePanelCtrl.prototype.filterDataTable = function (settings, data, rowIndex, originalData) {
     return arguments.length === 0 ? this : this.panel.allowFiltering ? originalData.isProcessed ? this.columns.every(function (column, columnIndex) {
+      var _a;
+
       var filter = column.filter;
-      return !column.colDef || !column.visible || !column.colDef.isSearchable || !filter || filter.ignore || filter.test(originalData[columnIndex].value);
+      return !column.visible || ((_a = column === null || column === void 0 ? void 0 : column.colDef) === null || _a === void 0 ? void 0 : _a.isSearchable) === false || !filter || filter.ignore || filter.test(originalData[columnIndex].value);
     }) : this.columns.every(function (column, columnIndex) {
+      var _a;
+
       var filter = column.filter;
-      return !column.colDef || !column.visible || !column.colDef.isSearchable || !filter || filter.ignore || filter.test(originalData[columnIndex]);
+      return !column.visible || ((_a = column === null || column === void 0 ? void 0 : column.colDef) === null || _a === void 0 ? void 0 : _a.isSearchable) === false || !filter || filter.ignore || filter.test(originalData[columnIndex]);
     }) : true;
   };
 
@@ -7633,6 +7637,9 @@ function (_super) {
           value: 'JSON',
           text: 'JSON (JavaScript Object Notation)'
         }, {
+          value: 'PSV',
+          text: 'PSV (Pipe-separated values)'
+        }, {
           value: 'TSV',
           text: 'TSV (Tab-separated values)'
         }],
@@ -7640,13 +7647,18 @@ function (_super) {
         getFileName: function getFileName() {
           return ctrl.getFileName(this.fileNamePattern, this.exportType);
         },
-        download: function download() {
+        download: function download(downloadAllData) {
           if (this.exportType === 'CSV') {
-            ctrl.exportCSV(this.fileNamePattern);
+            ctrl.exportCSV(downloadAllData, this.fileNamePattern);
           } else if (this.exportType === 'JSON') {
-            ctrl.exportJSON(this.fileNamePattern);
+            ctrl.exportJSON(downloadAllData, this.fileNamePattern);
+          } else if (this.exportType === 'PSV') {
+            ctrl.exportCSV(downloadAllData, this.fileNamePattern, {
+              delimiter: '|',
+              ext: 'psv'
+            });
           } else if (this.exportType === 'TSV') {
-            ctrl.exportCSV(this.fileNamePattern, {
+            ctrl.exportCSV(downloadAllData, this.fileNamePattern, {
               delimiter: '\t',
               ext: 'tsv'
             });
@@ -7657,21 +7669,45 @@ function (_super) {
     });
   };
 
-  DataTablePanelCtrl.prototype.exportJSON = function (fileNamePattern) {
-    var data = this.getData();
-    var columns = data.columns;
+  DataTablePanelCtrl.prototype.exportData = function (exportAllData) {
+    var header,
+        rows,
+        data = this.getData(),
+        columns = data.columns;
 
-    var _a = this.dataTable.buttons.exportData(),
+    if (exportAllData) {
+      header = this.dataTable.columns().header().toArray().map(function (x) {
+        return x.innerText;
+      });
+      rows = Array.from(this.dataTable.data());
+    } else {
+      var exportedData = this.dataTable.buttons.exportData();
+      header = exportedData.header;
+      rows = exportedData.body;
+    }
+
+    return {
+      header: header,
+      rows: rows,
+      data: data,
+      columns: columns
+    };
+  };
+
+  DataTablePanelCtrl.prototype.exportJSON = function (exportAllData, fileNamePattern) {
+    var _a = this.exportData(exportAllData),
+        columns = _a.columns,
+        data = _a.data,
         header = _a.header,
-        body = _a.body;
+        rows = _a.rows;
 
     var HEADER_TEXTS = columns.filter(function (c) {
       return c.visible;
     }).map(function (c) {
       return Object(_helper_functions__WEBPACK_IMPORTED_MODULE_6__["getHtmlText"])(c.html);
     });
-    this.processRows(body, columns, header, this.getVarsByName());
-    var rows = body.map(function (row) {
+    this.processRows(rows, columns, header, this.getVarsByName());
+    rows = rows.map(function (row) {
       return row.reduce(function (objRow, cell, cellIndex) {
         if (cell.visible) {
           objRow[HEADER_TEXTS[cellIndex]] = Object(_helper_functions__WEBPACK_IMPORTED_MODULE_6__["getHtmlText"])(cell.html);
@@ -7689,14 +7725,14 @@ function (_super) {
     Object(_external_FileSaver_min_js__WEBPACK_IMPORTED_MODULE_5__["saveAs"])(blob, this.getFileName(fileNamePattern, 'json'));
   };
 
-  DataTablePanelCtrl.prototype.exportCSV = function (fileNamePattern, opt_options) {
+  DataTablePanelCtrl.prototype.exportCSV = function (exportAllData, fileNamePattern, opt_options) {
     opt_options = Object(opt_options);
-    var data = this.getData();
-    var columns = data.columns;
 
-    var _a = this.dataTable.buttons.exportData(),
+    var _a = this.exportData(exportAllData),
+        columns = _a.columns,
+        data = _a.data,
         header = _a.header,
-        rows = _a.body;
+        rows = _a.rows;
 
     this.processRows(rows, columns, header, this.getVarsByName());
     var csvText = Object(_helper_functions__WEBPACK_IMPORTED_MODULE_6__["toCSV"])(rows.map(function (row) {
@@ -7725,9 +7761,11 @@ function (_super) {
   };
 
   DataTablePanelCtrl.prototype.getFileName = function (pattern, ext) {
+    var _this = this;
+
     var title = this.panel.title;
-    return pattern.replace(/(<TITLE>)|[^<]+|</g, function (match, replaceWithTitle) {
-      return replaceWithTitle ? title : _external_YourJS_min__WEBPACK_IMPORTED_MODULE_4__["formatDate"](new Date(), match);
+    return pattern.replace(/<(TITLE|DASHBOARD|PANEL)>|[^<]+|</g, function (match, source) {
+      return source ? source === 'TITLE' ? _this.panel.title || _this.dashboard.title : _this[source.toLowerCase()].title : _external_YourJS_min__WEBPACK_IMPORTED_MODULE_4__["formatDate"](new Date(), match);
     }) + '.' + ext.toLowerCase();
   };
 
@@ -7947,7 +7985,8 @@ function (_super) {
       pageLength: panel.initialPageLength,
       order: []
     };
-    ctrl.dataTable = jTable.DataTable(dataTableOpts); // Horizontally center tables that are not full page width.
+    ctrl.dataTable = jTable.DataTable(dataTableOpts);
+    globalThis["ctrl" + +new Date()] = ctrl; // Horizontally center tables that are not full page width.
 
     jElem.find('.dataTables_scrollHeadInner').css('margin', '0 auto'); // Control visibility here instead in options to allow for custom filtering.
 
