@@ -1,11 +1,12 @@
 # Changelog
 
 - **v0.6.0**
-  - Fixed filtering issue.
   - Added PSV downloads.
-  - Modified `<TITLE>` so that it will either use the title of the panel or if it doesn't have a title the title of the dashboard will be used.
-  - Added `<DASHBOARD>` and `<PANEL>` for filename meta groups.
   - Added a "Download All" option for speedy downloads.  NOTE:  Found that `dataTable.buttons.exportData()` is the cause of the slow downloads.
+  - Added XLSX Export.
+  - Added `<DASHBOARD>` and `<PANEL>` for filename meta groups.
+  - Modified `<TITLE>` so that it will either use the title of the panel or if it doesn't have a title the title of the dashboard will be used.
+  - Fixed filtering issue.
 
 - **v0.5.2**
   - Fixed "Save As" issue.

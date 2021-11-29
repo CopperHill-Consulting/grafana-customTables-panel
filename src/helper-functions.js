@@ -1,5 +1,6 @@
 import * as JS from './external/YourJS.min';
 import { getValueFormat } from './format-values';
+import * as XLSX from './external/xlsx.core.min';
 
 const RGX_CELL_PLACEHOLDER = /\$\{(time)(?:-(to|from))?\}|\$\{(?:(value|cell|0|[1-9]\d*)|(col|join-col|var):((?:[^\}:\\]*|\\.)+))(?::(?:(raw)|(escape)|(param)(?::((?:[^\}:\\]*|\\.)+))?))?\}/g;
 const RGX_OLD_VAR_WORKAROUND = /([\?&])var-(\$\{var:(?:[^\}:\\]*|\\.)+:param\})/g;
@@ -296,6 +297,114 @@ function parseOptionalNumber(strNum) {
   }
 }
 
+/**
+ * Always returns the same value unless this is an object of some sort or this
+ * is a formula string.
+ * @see https://docs.sheetjs.com/
+ * @param {any} value
+ * @returns {any}
+ */
+function _parseXLSXValue(value) {
+  let typeName;
+  if (value instanceof Date || (typeName = typeof value) === 'bigint' || typeName === 'number') {
+    return value;
+  }
+  value = [value] + '';
+  return /^=\w+\(/.test(value)
+    ? {f: value.slice(1)}
+    // Makes sure that numbers are represented correctly.
+    : /^-?(?:[1-9]\d*|0)(?:\.\d+)?$/.test(value)
+      ? +value
+      : value;
+}
+
+/**
+ * @typedef {Object} SaveXLSX_Settings
+ * @property {string} fileName
+ * @property {SaveXLSX_Worksheet[]} worksheets
+ */
+
+/**
+ * @typedef {Object} SaveXLSX_Worksheet
+ * @property {string=} name
+ * @property {any[]=} headers
+ * @property {(any[][]|Array<{[k: string]: any}>)} rows
+ */
+
+/**
+ * @param {SaveXLSX_Settings} settings
+ */
+ function saveXLSX(settings) {
+  const {fileName, worksheets} = settings;
+  const wb = XLSX.utils.book_new();
+
+  // Parses the worksheet objects that were passed in and adds them to wb.
+  worksheets.forEach(({name, rows, headers}, worksheetIndex) => {
+    let prependHeaders = !!headers;
+
+    // Keeps track of the index of each header (AKA key).
+    const indexOfKeys = (headers ??= []).reduce(
+      (indexOfKeys, k, i) => Object.assign(indexOfKeys, {[k]: i}),
+      {}
+    );
+
+    // Indicates of the first non-empty row is an array or an object to figure
+    // out how to process the rows.
+    const firstNonEmptyRow = rows.find(
+      row => (Array.isArray(row) ? row : Object.keys(row)).length
+    );
+
+    // If this is an array of arrays just make sure that rows is an array of
+    // arrays.
+    if (Array.isArray(firstNonEmptyRow)) {
+      rows = rows.map(r => r.map(_parseXLSXValue));
+    }
+    // If this is an array of objects get rows as an array of arrays and make
+    // sure to add any headers that are missing to the `headers` array.
+    else {
+      prependHeaders = true;
+      rows = rows.map(row => {
+        const newRow = [];
+        for (const [key, value] of Object.entries(row)) {
+          let keyIndex = indexOfKeys[key];
+          if ('number' !== typeof keyIndex) {
+            indexOfKeys[key] = keyIndex = headers.push(key) - 1;
+          }
+          newRow[keyIndex] = _parseXLSXValue(value);
+        }
+        return newRow;
+      });
+    }
+
+    // If `headers` was defined or `rows` was an array of objects then make sure
+    // the first row is the array of headers.
+    if (prependHeaders) {
+      rows = [headers].concat(rows);
+    }
+    
+    // Add this new worksheet to the workbook.
+    XLSX.utils.book_append_sheet(
+      wb,
+      XLSX.utils.aoa_to_sheet(rows),
+      name ?? `Sheet${worksheetIndex + 1}`
+    );
+  });
+
+  const wbOut = XLSX.write(wb, {
+    bookType: 'xlsx',
+    bookSST: true,
+    type: 'binary'
+  });
+  const wbOutBin64 = btoa(wbOut);
+  Object.assign(
+    document.createElement('a'),
+    {
+      href: `data:;base64,${wbOutBin64}`,
+      download: fileName ?? `workbook-${(new Date).toJSON()}.xlsx`
+    }
+  ).click();
+}
+
 export {
   toCSV,
   parseRegExp,
@@ -306,5 +415,6 @@ export {
   parseLocalDate,
   parseOptionalNumber,
   offsetByTZ,
-  toLocalDateString
+  toLocalDateString,
+  saveXLSX,
 };

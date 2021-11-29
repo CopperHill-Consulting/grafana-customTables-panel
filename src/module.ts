@@ -13,6 +13,7 @@ import {
   parseLocalDate,
   parseOptionalNumber,
   toLocalDateString,
+  saveXLSX,
 } from './helper-functions';
 import './external/datatables/js/jquery.dataTables.min';
 import './external/datatables/js/dataTables.fixedHeader.min';
@@ -380,6 +381,7 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
           { value: 'JSON', text: 'JSON (JavaScript Object Notation)' },
           { value: 'PSV', text: 'PSV (Pipe-separated values)' },
           { value: 'TSV', text: 'TSV (Tab-separated values)' },
+          { value: 'XLSX', text: 'XLSX Workbook (Data Only)' },
         ],
         exportType: 'CSV',
         getFileName() {
@@ -394,6 +396,8 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
             ctrl.exportCSV(downloadAllData, this.fileNamePattern, { delimiter: '|', ext: 'psv' });
           } else if (this.exportType === 'TSV') {
             ctrl.exportCSV(downloadAllData, this.fileNamePattern, { delimiter: '\t', ext: 'tsv' });
+          } else if (this.exportType === 'XLSX') {
+            ctrl.exportXLSX(downloadAllData, this.fileNamePattern);
           }
         },
       }),
@@ -468,6 +472,34 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
     let mimeType = 'text/' + (ext === 'tsv' ? 'tab-separated-values' : ext);
     let blob = new Blob([csvText], { type: `${mimeType};charset=utf-8` });
     saveAs(blob, this.getFileName(fileNamePattern, ext));
+  }
+
+  exportXLSX(exportAllData: boolean, fileNamePattern: string) {
+    let { columns, data, header, rows } = this.exportData(exportAllData);
+    this.processRows(rows, columns, header, this.getVarsByName());
+
+    saveXLSX({
+      fileName: this.getFileName(fileNamePattern, 'xlsx'),
+      worksheets: [
+        {
+          name: 'Main',
+          headers: columns.reduce((carry, col) => {
+            if (col.visible) {
+              carry.push(getHtmlText(col.html));
+            }
+            return carry;
+          }, []),
+          rows: rows.map(row =>
+            row.reduce((carry, cell) => {
+              if (cell.visible) {
+                carry.push(getHtmlText(cell.html));
+              }
+              return carry;
+            }, [])
+          ),
+        },
+      ],
+    });
   }
 
   getFileName(pattern, ext) {
