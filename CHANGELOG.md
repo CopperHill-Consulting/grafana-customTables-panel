@@ -7,7 +7,8 @@
   - Added `<DASHBOARD>` and `<PANEL>` for filename meta groups.
   - Modified `<TITLE>` so that it will either use the title of the panel or if it doesn't have a title the title of the dashboard will be used.
   - Changed the "Reset Filter" button to "Remove Filter" and updated the functionality accordingly.
-  - Fixed filtering issue.
+  - Fixed filtering issues.
+  - Fixed file name preview so that invalid characters are turned into underscores on all systems both in the preview and when downloaded.
 
 - **v0.5.2**
   - Fixed "Save As" issue.

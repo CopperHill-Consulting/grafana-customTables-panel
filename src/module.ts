@@ -14,6 +14,7 @@ import {
   parseOptionalNumber,
   toLocalDateString,
   saveXLSX,
+  vRegExp,
 } from './helper-functions';
 import './external/datatables/js/jquery.dataTables.min';
 import './external/datatables/js/dataTables.fixedHeader.min';
@@ -503,15 +504,27 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
   }
 
   getFileName(pattern, ext) {
-    let { title } = this.panel;
     return (
-      pattern.replace(/<(TITLE|DASHBOARD|PANEL)>|[^<]+|</g, (match, source) =>
-        source
-          ? source === 'TITLE'
-            ? this.panel.title || this.dashboard.title
-            : this[source.toLowerCase()].title
-          : JS.formatDate(new Date(), match)
-      ) +
+      pattern
+        // Replace the meta groups and date formatting.
+        .replace(
+          vRegExp`
+          (?g)                      // Global regexp
+          <(TITLE|DASHBOARD|PANEL)> // Source type
+          |
+          [^<]+                     // Characters to run through JS.formatDate().
+        `,
+          (match, source) =>
+            source
+              ? source === 'TITLE'
+                ? this.panel.title || this.dashboard.title
+                : this[source.toLowerCase()].title
+              : JS.formatDate(new Date(), match)
+        )
+        // Replace 1 or more consecutive invalid file name characters with an
+        // underscore.
+        .replace(/[<>:"\\\/\|\?\*]+/g, '_') +
+      // Add the extension.
       '.' +
       ext.toLowerCase()
     );

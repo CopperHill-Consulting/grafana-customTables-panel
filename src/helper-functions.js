@@ -405,6 +405,24 @@ function _parseXLSXValue(value) {
   ).click();
 }
 
+/**
+ * A tag function which can be used to create verbose regular expressions.
+ * @license Copyright 2021 - Chris West - MIT Licensed
+ * @see https://gist.github.com/westc/dc1b74018d278147e05cac3018acd8e5
+ */
+ function vRegExp(input, ...fillins) {
+  let {raw} = input;
+  let content = raw[0];
+  for (let i = 1, l = raw.length; i < l; i++) {
+    content += fillins[i - 1] + raw[i];
+  }
+  content = content.replace(/^(\\[^])|\s+|\/\/.*|\/\*[^]*?\*\//g, '$1');
+  return new RegExp(
+    content.replace(/^(?:\(\?\w+\))+/g, ''),
+    content.replace(/\(\?(\w+)\)|[^(]+|\(/g, '$1')
+  );
+}
+
 export {
   toCSV,
   parseRegExp,
@@ -417,4 +435,5 @@ export {
   offsetByTZ,
   toLocalDateString,
   saveXLSX,
+  vRegExp,
 };

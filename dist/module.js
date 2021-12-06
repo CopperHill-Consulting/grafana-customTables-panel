@@ -9386,7 +9386,7 @@ function getGrafanaFormat(formatName) {
 /*!*****************************!*\
   !*** ./helper-functions.js ***!
   \*****************************/
-/*! exports provided: toCSV, parseRegExp, pseudoCssToJSON, getCellValue, getHtmlText, term, parseLocalDate, parseOptionalNumber, offsetByTZ, toLocalDateString, saveXLSX */
+/*! exports provided: toCSV, parseRegExp, pseudoCssToJSON, getCellValue, getHtmlText, term, parseLocalDate, parseOptionalNumber, offsetByTZ, toLocalDateString, saveXLSX, vRegExp */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
@@ -9402,6 +9402,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "offsetByTZ", function() { return offsetByTZ; });
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "toLocalDateString", function() { return toLocalDateString; });
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "saveXLSX", function() { return saveXLSX; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "vRegExp", function() { return vRegExp; });
 /* harmony import */ var _external_YourJS_min__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./external/YourJS.min */ "./external/YourJS.min.js");
 /* harmony import */ var _external_YourJS_min__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(_external_YourJS_min__WEBPACK_IMPORTED_MODULE_0__);
 /* harmony import */ var _format_values__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./format-values */ "./format-values.js");
@@ -9784,6 +9785,24 @@ function saveXLSX(settings) {
     href: "data:;base64,".concat(wbOutBin64),
     download: fileName !== null && fileName !== void 0 ? fileName : "workbook-".concat(new Date().toJSON(), ".xlsx")
   }).click();
+}
+/**
+ * A tag function which can be used to create verbose regular expressions.
+ * @license Copyright 2021 - Chris West - MIT Licensed
+ * @see https://gist.github.com/westc/dc1b74018d278147e05cac3018acd8e5
+ */
+
+
+function vRegExp(input) {
+  var raw = input.raw;
+  var content = raw[0];
+
+  for (var i = 1, l = raw.length; i < l; i++) {
+    content += (i - 1 + 1 < 1 || arguments.length <= i - 1 + 1 ? undefined : arguments[i - 1 + 1]) + raw[i];
+  }
+
+  content = content.replace(/^(\\[^])|\s+|\/\/.*|\/\*[^]*?\*\//g, '$1');
+  return new RegExp(content.replace(/^(?:\(\?\w+\))+/g, ''), content.replace(/\(\?(\w+)\)|[^(]+|\(/g, '$1'));
 }
 
 
@@ -10256,10 +10275,13 @@ function (_super) {
   DataTablePanelCtrl.prototype.getFileName = function (pattern, ext) {
     var _this = this;
 
-    var title = this.panel.title;
-    return pattern.replace(/<(TITLE|DASHBOARD|PANEL)>|[^<]+|</g, function (match, source) {
+    return pattern // Replace the meta groups and date formatting.
+    .replace(Object(_helper_functions__WEBPACK_IMPORTED_MODULE_6__["vRegExp"])(templateObject_1 || (templateObject_1 = Object(tslib__WEBPACK_IMPORTED_MODULE_0__["__makeTemplateObject"])(["\n          (?g)                      // Global regexp\n          <(TITLE|DASHBOARD|PANEL)> // Source type\n          |\n          [^<]+                     // Characters to run through JS.formatDate().\n        "], ["\n          (?g)                      // Global regexp\n          <(TITLE|DASHBOARD|PANEL)> // Source type\n          |\n          [^<]+                     // Characters to run through JS.formatDate().\n        "]))), function (match, source) {
       return source ? source === 'TITLE' ? _this.panel.title || _this.dashboard.title : _this[source.toLowerCase()].title : _external_YourJS_min__WEBPACK_IMPORTED_MODULE_4__["formatDate"](new Date(), match);
-    }) + '.' + ext.toLowerCase();
+    }) // Replace 1 or more consecutive invalid file name characters with an
+    // underscore.
+    .replace(/[<>:"\\\/\|\?\*]+/g, '_') + // Add the extension.
+    '.' + ext.toLowerCase();
   };
 
   DataTablePanelCtrl.prototype.getVarsByName = function () {
@@ -11140,6 +11162,7 @@ DataTablePanelCtrl.prototype.autoRedraw = lodash__WEBPACK_IMPORTED_MODULE_3___de
   }
 }, 500);
 
+var templateObject_1;
 
 /***/ }),
 
