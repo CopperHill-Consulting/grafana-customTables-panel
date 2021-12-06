@@ -10327,7 +10327,7 @@ function (_super) {
 
               var colDataType_1 = lodash__WEBPACK_IMPORTED_MODULE_3___default.a.get(filter_1, 'dataType', 'String');
 
-              var showFilterModal_1 = function showFilterModal_1(e) {
+              var showFilterModal = function showFilterModal(e) {
                 e && e.stopPropagation();
                 var ID_SUFFIX = +new Date();
 
@@ -10344,9 +10344,10 @@ function (_super) {
                     columnDataType: colDataType_1,
                     ID_SUFFIX: ID_SUFFIX,
                     filter: filterCopy,
-                    resetFilter: function resetFilter() {
+                    removeFilter: function removeFilter() {
+                      filter_1.clear();
+                      ctrl.dataTable.draw();
                       this.dismiss();
-                      showFilterModal_1();
                     },
                     saveFilter: function saveFilter() {
                       var scopeFilter = this;
@@ -10422,7 +10423,7 @@ function (_super) {
                 _: 'i',
                 cls: 'fa fa-filter ' + (filter_1.ignore ? 'off' : 'on'),
                 style: (filter_1.ignore ? 'opacity:0.25;' : '') + 'margin-right:0.25em;cursor:pointer;',
-                onclick: showFilterModal_1
+                onclick: showFilterModal
               }));
             }
           }
@@ -10849,7 +10850,7 @@ function (_super) {
         return false;
       }); // Initialize the filter object...
 
-      var filter = column.filter = {
+      var originalFilter = {
         ignore: true,
         negate: false,
         text: '',
@@ -10868,7 +10869,18 @@ function (_super) {
         matchTerms: function matchTerms() {
           return true;
         }
-      }; // Add the test() function to the filter object while binding the filter
+      };
+      var filter = column.filter = Object.assign({
+        clear: function clear() {
+          Object.assign(this, originalFilter);
+        },
+        dataType: _external_YourJS_min__WEBPACK_IMPORTED_MODULE_4__["nativeType"]((rows.find(function (row) {
+          return row[colIndex] !== null && row[colIndex] !== undefined;
+        }) || [])[colIndex]),
+        matchTerms: function matchTerms() {
+          return true;
+        }
+      }, originalFilter); // Add the test() function to the filter object while binding the filter
       // object to the test() function.
 
       filter.test = function (value) {
@@ -10895,7 +10907,7 @@ function (_super) {
           return (includeTrue && value || includeFalse && !value || includeNull && (value === null || value === undefined)) !== negate;
         }
 
-        return (this.matchTerms(value) || includeNull && (value === null || value === undefined)) !== negate;
+        return !(this.matchTerms(value) || includeNull && (value === null || value === undefined)) === negate;
       }.bind(filter); // If the column is visible, try to attach the saved column filter by
       // matching on the column text and the column data type.
 

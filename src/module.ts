@@ -595,9 +595,10 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
                     columnDataType: colDataType,
                     ID_SUFFIX,
                     filter: filterCopy,
-                    resetFilter() {
+                    removeFilter() {
+                      filter.clear();
+                      ctrl.dataTable.draw();
                       this.dismiss();
-                      showFilterModal();
                     },
                     saveFilter() {
                       let scopeFilter = this;
@@ -1062,7 +1063,7 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
       });
 
       // Initialize the filter object...
-      let filter = (column.filter = {
+      let originalFilter = {
         ignore: true,
         negate: false,
         text: '',
@@ -1081,7 +1082,21 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
         matchTerms() {
           return true;
         },
-      });
+      };
+      let filter = (column.filter = Object.assign(
+        {
+          clear() {
+            Object.assign(this, originalFilter);
+          },
+          dataType: JS.nativeType(
+            (rows.find(row => row[colIndex] !== null && row[colIndex] !== undefined) || [])[colIndex]
+          ),
+          matchTerms() {
+            return true;
+          },
+        },
+        originalFilter
+      ));
 
       // Add the test() function to the filter object while binding the filter
       // object to the test() function.
