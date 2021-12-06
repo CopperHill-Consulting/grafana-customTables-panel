@@ -1116,7 +1116,7 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
               (includeNull && (value === null || value === undefined))) !== negate
           );
         }
-        return (this.matchTerms(value) || (includeNull && (value === null || value === undefined))) !== negate;
+        return !(this.matchTerms(value) || (includeNull && (value === null || value === undefined))) === negate;
       }.bind(filter);
 
       // If the column is visible, try to attach the saved column filter by
