@@ -406,6 +406,45 @@ function _parseXLSXValue(value) {
 }
 
 /**
+ * Finds the minimum indentation of all of the lines that have non-space
+ * characters and removes the indentation accordingly for all indented lines.
+ * @param {string} text
+ *   The string containing the lines of text that should be unindented.
+ * @param {{trim: boolean, tabSize: number}=} opt_options
+ *   Optional, defaults to `{trim: true, tabSize: 4}`.  The `trim` property
+ *   indicates if leading lines should be removed along with trailing
+ *   whitespaces.  The `tabSize` property indicates how many spaces will be
+ *   used to replace all tab characters.
+ * @returns {string}
+ *   A new version of `text` with all of the minimally indented lines having
+ *   no leading spacing and all other indented lines following suit.  If
+ *   `opt_options.trim` is `true` all leading lines and trailing spaces will
+ *   not exist.  All tab characters will be replaced with
+ *   `opt_options.tabSize` amount of space characters.
+ * @see https://gist.github.com/westc/8acb0f026014a6630b0b8ecbfeaf51f1
+ */
+ function unindentMin(text, opt_options) {
+  opt_options = Object(opt_options);
+  const tabSize = opt_options.tabSize ?? 4;
+  const trim = opt_options.trim ?? true;
+  text = text.replace(/\t/g, ' '.repeat(tabSize));
+  if (!/(^|[\r\n])\S/.test(text)) {
+    const rgx = /(^|[\r\n])((?:(?!\r|\n)\s)+)(?=(\S)?)/g;
+    let min = Infinity;
+    for (let match; match = rgx.exec(text);) {
+      if (match[3]) {
+        min = Math.min(min, match[2].length);
+      }
+    }
+    text = text.replace(
+      rgx,
+      (_, start, spaces) => start + spaces.slice(min)
+    );
+  }
+  return trim ? text.replace(/^(\s*[\r\n]+)+|\s+$/g, '') : text;
+}
+
+/**
  * A tag function which can be used to create verbose regular expressions.
  * @license Copyright 2021 - Chris West - MIT Licensed
  * @see https://gist.github.com/westc/dc1b74018d278147e05cac3018acd8e5
@@ -424,16 +463,17 @@ function _parseXLSXValue(value) {
 }
 
 export {
-  toCSV,
-  parseRegExp,
-  pseudoCssToJSON,
   getCellValue,
   getHtmlText,
-  term,
+  offsetByTZ,
   parseLocalDate,
   parseOptionalNumber,
-  offsetByTZ,
-  toLocalDateString,
+  parseRegExp,
+  pseudoCssToJSON,
   saveXLSX,
+  term,
+  toLocalDateString,
+  toCSV,
+  unindentMin,
   vRegExp,
 };
