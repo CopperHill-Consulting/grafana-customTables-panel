@@ -1,19 +1,21 @@
+import * as gfData from '@grafana/data';
 import { MetricsPanelCtrl } from 'grafana/app/plugins/sdk';
 import { getValueFormats } from './format-values';
 import _ from 'lodash';
 import * as JS from './external/YourJS.min';
 import { saveAs } from './external/FileSaver.min.js';
 import {
-  toCSV,
-  parseRegExp,
-  pseudoCssToJSON,
   getCellValue,
   getHtmlText,
-  term,
   parseLocalDate,
   parseOptionalNumber,
-  toLocalDateString,
+  parseRegExp,
+  pseudoCssToJSON,
   saveXLSX,
+  term,
+  toCSV,
+  toLocalDateString,
+  unindentMin,
   vRegExp,
 } from './helper-functions';
 import './external/datatables/js/jquery.dataTables.min';
@@ -39,9 +41,10 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
   element: any;
   pageLengthOptions: any;
   throttleDraw: any;
+  processedDataList: any;
 
   static templateUrl = 'partials/module.html';
-  static DEFAULT_PSEUDO_CSS = `
+  static DEFAULT_PSEUDO_CSS = unindentMin(`
   .theme-dark & {
     color: white;
     
@@ -73,7 +76,27 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
       background-color: rgba(128,128,128,0.15);
     }
   }
-  `;
+  `);
+  static DEFAULT_COL_DEF_JS = unindentMin(`
+  /**
+   * The function that is called to process the array of received datasets.
+   * @template {Dataset[]} T
+   * @param {T} datasets
+   * @returns {T}
+   */
+  function processData(datasets) {
+    return datasets;
+  }
+  /**
+   * @typedef {Object} Dataset
+   * @property {{text: string}[]} columns
+   * @property {boolean} isReal
+   * @property {{executedQueryString: boolean}} meta
+   * @property {string} refId
+   * @property {any[][]} rows
+   * @property {string} type
+   */
+  `);
 
   static UNIT_FORMATS = getValueFormats();
 
@@ -130,6 +153,7 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
     initialPageLength: 25,
     isFullWidth: true,
     pageLengths: '10,15,20,25,50,100',
+    colDefJS: DataTablePanelCtrl.DEFAULT_COL_DEF_JS,
     pseudoCSS: DataTablePanelCtrl.DEFAULT_PSEUDO_CSS,
     varCols: {
       dataRefId: null,
@@ -163,6 +187,11 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
     this.events.on('render', this.onPanelSizeChanged.bind(this));
     this.events.on('view-mode-changed', this.draw.bind(this));
     this.events.on('panel-teardown', this.onDataTablePanelTeardown.bind(this));
+    Object.values(gfData.PanelEvents).forEach(({name}) => {
+      this.events.on(name, function() {
+        console.debug(name, arguments);
+      });
+    });
 
     jQuery.fn.dataTable.ext.search.push(this.filterDataTable.bind(this));
   }
@@ -261,8 +290,8 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
         });
       });
       this.dataList = dataList;
-      this.updateDataListOptions();
-    } else {
+    }
+    else {
       let EXTRA_COLS = 2;
       this.dataList = [
         {
@@ -350,7 +379,7 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
   }
 
   updateDataListOptions() {
-    this.dataListOptions = [{}].concat(this.dataList).map((x, i) => ({
+    this.dataListOptions = [{}].concat(this.processedDataList).map((x, i) => ({
       id: i ? (x as any).refId : null,
       text: i ? (x as any).refId : '--- NONE ---',
     }));
@@ -903,7 +932,7 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
   getVarColsData() {
     let varCols = this.panel.varCols;
     let dataRefId = varCols && varCols.dataRefId;
-    let dataList = this.dataList;
+    let dataList = this.processedDataList;
     return dataList && dataList.find(({ refId }) => refId === dataRefId);
   }
 
@@ -1011,9 +1040,25 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
     }
   }
 
+  /**
+   * Updates the `processedDataList` property of this panel's instance.
+   */
+  updateProcessedDataList() {
+    const {colDefJS} = this.panel;
+    this.processedDataList = JSON.parse(JSON.stringify(this.dataList));
+    if (colDefJS !== DataTablePanelCtrl.DEFAULT_COL_DEF_JS && (colDefJS || '').trim() !== '') {
+      this.processedDataList = new Function(`${colDefJS}\nreturn processData(arguments[0])`)(this.processedDataList);
+    }
+    this.updateDataListOptions();
+  }
+
   getData() {
     let ctrl = this;
-    let dataList = ctrl.dataList[0];
+
+    // Update this.processedDataList
+    ctrl.updateProcessedDataList();
+
+    let dataList = ctrl.processedDataList[0];
     let columns = dataList.columns.map(col => _.cloneDeep(col));
     let rows = dataList.rows.map(row => row.slice());
     let varsByName = ctrl.getVarsByName();
@@ -1242,6 +1287,7 @@ export class DataTablePanelCtrl extends MetricsPanelCtrl {
     _.set(rootVar, path, value);
     this.autoRedraw();
   }
+
   autoRedraw() {
     throw new Error('Method not implemented.');
   }

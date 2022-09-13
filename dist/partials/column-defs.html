@@ -1,3 +1,16 @@
+<h5>JavaScript Definition</h5>
+<div class="gf-form-inline">
+  <div class="gf-form gf-form--grow">
+    <code-editor
+      content="ctrl.panel.colDefJS"
+      data-mode="javascript"
+      snippets-enabled="false"
+      data-max-lines="20"
+      on-change="ctrl.autoRedraw()">
+    </code-editor>
+  </div>
+</div>
+
 <div class="edit-tab-content" ng-repeat="cd in ctrl.panel.columnDefs">
   <div class="gf-form">
     <label class="gf-form-label width-12">Filter</label>
@@ -53,6 +66,7 @@
       on-change="ctrl.autoRedraw()">
     </gf-form-switch>
   </div>
+  
   <div ng-if="cd.isVisible">
     <div ng-if="ctrl.panel.allowSearching || ctrl.panel.allowFiltering" class="gf-form">
       <gf-form-switch
@@ -105,7 +119,7 @@
         <label class="gf-form-label width-12">Type</label>
         <select class="gf-form-input"
           ng-model="rule.type"
-          ng-options="t.id as t.text for t in ctrl.getConstByName('CONTENT_RULE_TYPES')"
+          ng-options="t.id as rule.negateCriteria ? 'NOT(' + t.text + ')' : t.text for t in ctrl.getConstByName('CONTENT_RULE_TYPES')"
           ng-change="ctrl.autoRedraw()">
         </select>
       </div>

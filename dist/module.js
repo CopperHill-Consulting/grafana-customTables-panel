@@ -9386,22 +9386,23 @@ function getGrafanaFormat(formatName) {
 /*!*****************************!*\
   !*** ./helper-functions.js ***!
   \*****************************/
-/*! exports provided: toCSV, parseRegExp, pseudoCssToJSON, getCellValue, getHtmlText, term, parseLocalDate, parseOptionalNumber, offsetByTZ, toLocalDateString, saveXLSX, vRegExp */
+/*! exports provided: getCellValue, getHtmlText, offsetByTZ, parseLocalDate, parseOptionalNumber, parseRegExp, pseudoCssToJSON, saveXLSX, term, toLocalDateString, toCSV, unindentMin, vRegExp */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
 __webpack_require__.r(__webpack_exports__);
-/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "toCSV", function() { return toCSV; });
-/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "parseRegExp", function() { return parseRegExp; });
-/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "pseudoCssToJSON", function() { return pseudoCssToJSON; });
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "getCellValue", function() { return getCellValue; });
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "getHtmlText", function() { return getHtmlText; });
-/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "term", function() { return term; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "offsetByTZ", function() { return offsetByTZ; });
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "parseLocalDate", function() { return parseLocalDate; });
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "parseOptionalNumber", function() { return parseOptionalNumber; });
-/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "offsetByTZ", function() { return offsetByTZ; });
-/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "toLocalDateString", function() { return toLocalDateString; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "parseRegExp", function() { return parseRegExp; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "pseudoCssToJSON", function() { return pseudoCssToJSON; });
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "saveXLSX", function() { return saveXLSX; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "term", function() { return term; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "toLocalDateString", function() { return toLocalDateString; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "toCSV", function() { return toCSV; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "unindentMin", function() { return unindentMin; });
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "vRegExp", function() { return vRegExp; });
 /* harmony import */ var _external_YourJS_min__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./external/YourJS.min */ "./external/YourJS.min.js");
 /* harmony import */ var _external_YourJS_min__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(_external_YourJS_min__WEBPACK_IMPORTED_MODULE_0__);
@@ -9787,6 +9788,51 @@ function saveXLSX(settings) {
   }).click();
 }
 /**
+ * Finds the minimum indentation of all of the lines that have non-space
+ * characters and removes the indentation accordingly for all indented lines.
+ * @param {string} text
+ *   The string containing the lines of text that should be unindented.
+ * @param {{trim: boolean, tabSize: number}=} opt_options
+ *   Optional, defaults to `{trim: true, tabSize: 4}`.  The `trim` property
+ *   indicates if leading lines should be removed along with trailing
+ *   whitespaces.  The `tabSize` property indicates how many spaces will be
+ *   used to replace all tab characters.
+ * @returns {string}
+ *   A new version of `text` with all of the minimally indented lines having
+ *   no leading spacing and all other indented lines following suit.  If
+ *   `opt_options.trim` is `true` all leading lines and trailing spaces will
+ *   not exist.  All tab characters will be replaced with
+ *   `opt_options.tabSize` amount of space characters.
+ * @see https://gist.github.com/westc/8acb0f026014a6630b0b8ecbfeaf51f1
+ */
+
+
+function unindentMin(text, opt_options) {
+  var _opt_options$tabSize, _opt_options$trim;
+
+  opt_options = Object(opt_options);
+  var tabSize = (_opt_options$tabSize = opt_options.tabSize) !== null && _opt_options$tabSize !== void 0 ? _opt_options$tabSize : 4;
+  var trim = (_opt_options$trim = opt_options.trim) !== null && _opt_options$trim !== void 0 ? _opt_options$trim : true;
+  text = text.replace(/\t/g, ' '.repeat(tabSize));
+
+  if (!/(^|[\r\n])\S/.test(text)) {
+    var rgx = /(^|[\r\n])((?:(?!\r|\n)\s)+)(?=(\S)?)/g;
+    var min = Infinity;
+
+    for (var match; match = rgx.exec(text);) {
+      if (match[3]) {
+        min = Math.min(min, match[2].length);
+      }
+    }
+
+    text = text.replace(rgx, function (_, start, spaces) {
+      return start + spaces.slice(min);
+    });
+  }
+
+  return trim ? text.replace(/^(\s*[\r\n]+)+|\s+$/g, '') : text;
+}
+/**
  * A tag function which can be used to create verbose regular expressions.
  * @license Copyright 2021 - Chris West - MIT Licensed
  * @see https://gist.github.com/westc/dc1b74018d278147e05cac3018acd8e5
@@ -9821,30 +9867,33 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "DataTablePanelCtrl", function() { return DataTablePanelCtrl; });
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "PanelCtrl", function() { return DataTablePanelCtrl; });
 /* harmony import */ var tslib__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! tslib */ "../node_modules/tslib/tslib.es6.js");
-/* harmony import */ var grafana_app_plugins_sdk__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! grafana/app/plugins/sdk */ "grafana/app/plugins/sdk");
-/* harmony import */ var grafana_app_plugins_sdk__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(grafana_app_plugins_sdk__WEBPACK_IMPORTED_MODULE_1__);
-/* harmony import */ var _format_values__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./format-values */ "./format-values.js");
-/* harmony import */ var lodash__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! lodash */ "lodash");
-/* harmony import */ var lodash__WEBPACK_IMPORTED_MODULE_3___default = /*#__PURE__*/__webpack_require__.n(lodash__WEBPACK_IMPORTED_MODULE_3__);
-/* harmony import */ var _external_YourJS_min__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./external/YourJS.min */ "./external/YourJS.min.js");
-/* harmony import */ var _external_YourJS_min__WEBPACK_IMPORTED_MODULE_4___default = /*#__PURE__*/__webpack_require__.n(_external_YourJS_min__WEBPACK_IMPORTED_MODULE_4__);
-/* harmony import */ var _external_FileSaver_min_js__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./external/FileSaver.min.js */ "./external/FileSaver.min.js");
-/* harmony import */ var _external_FileSaver_min_js__WEBPACK_IMPORTED_MODULE_5___default = /*#__PURE__*/__webpack_require__.n(_external_FileSaver_min_js__WEBPACK_IMPORTED_MODULE_5__);
-/* harmony import */ var _helper_functions__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./helper-functions */ "./helper-functions.js");
-/* harmony import */ var _external_datatables_js_jquery_dataTables_min__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./external/datatables/js/jquery.dataTables.min */ "./external/datatables/js/jquery.dataTables.min.js");
-/* harmony import */ var _external_datatables_js_jquery_dataTables_min__WEBPACK_IMPORTED_MODULE_7___default = /*#__PURE__*/__webpack_require__.n(_external_datatables_js_jquery_dataTables_min__WEBPACK_IMPORTED_MODULE_7__);
-/* harmony import */ var _external_datatables_js_dataTables_fixedHeader_min__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ./external/datatables/js/dataTables.fixedHeader.min */ "./external/datatables/js/dataTables.fixedHeader.min.js");
-/* harmony import */ var _external_datatables_js_dataTables_fixedHeader_min__WEBPACK_IMPORTED_MODULE_8___default = /*#__PURE__*/__webpack_require__.n(_external_datatables_js_dataTables_fixedHeader_min__WEBPACK_IMPORTED_MODULE_8__);
-/* harmony import */ var _external_datatables_js_dataTables_buttons_min__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! ./external/datatables/js/dataTables.buttons.min */ "./external/datatables/js/dataTables.buttons.min.js");
-/* harmony import */ var _external_datatables_js_dataTables_buttons_min__WEBPACK_IMPORTED_MODULE_9___default = /*#__PURE__*/__webpack_require__.n(_external_datatables_js_dataTables_buttons_min__WEBPACK_IMPORTED_MODULE_9__);
-/* harmony import */ var _external_datatables_css_jquery_dataTables_min_css__WEBPACK_IMPORTED_MODULE_10__ = __webpack_require__(/*! ./external/datatables/css/jquery.dataTables.min.css */ "./external/datatables/css/jquery.dataTables.min.css");
-/* harmony import */ var _external_datatables_css_jquery_dataTables_min_css__WEBPACK_IMPORTED_MODULE_10___default = /*#__PURE__*/__webpack_require__.n(_external_datatables_css_jquery_dataTables_min_css__WEBPACK_IMPORTED_MODULE_10__);
-/* harmony import */ var _external_datatables_css_fixedHeader_dataTables_min_css__WEBPACK_IMPORTED_MODULE_11__ = __webpack_require__(/*! ./external/datatables/css/fixedHeader.dataTables.min.css */ "./external/datatables/css/fixedHeader.dataTables.min.css");
-/* harmony import */ var _external_datatables_css_fixedHeader_dataTables_min_css__WEBPACK_IMPORTED_MODULE_11___default = /*#__PURE__*/__webpack_require__.n(_external_datatables_css_fixedHeader_dataTables_min_css__WEBPACK_IMPORTED_MODULE_11__);
-/* harmony import */ var _external_datatables_css_buttons_dataTables_min_css__WEBPACK_IMPORTED_MODULE_12__ = __webpack_require__(/*! ./external/datatables/css/buttons.dataTables.min.css */ "./external/datatables/css/buttons.dataTables.min.css");
-/* harmony import */ var _external_datatables_css_buttons_dataTables_min_css__WEBPACK_IMPORTED_MODULE_12___default = /*#__PURE__*/__webpack_require__.n(_external_datatables_css_buttons_dataTables_min_css__WEBPACK_IMPORTED_MODULE_12__);
-/* harmony import */ var jquery__WEBPACK_IMPORTED_MODULE_13__ = __webpack_require__(/*! jquery */ "jquery");
-/* harmony import */ var jquery__WEBPACK_IMPORTED_MODULE_13___default = /*#__PURE__*/__webpack_require__.n(jquery__WEBPACK_IMPORTED_MODULE_13__);
+/* harmony import */ var _grafana_data__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! @grafana/data */ "@grafana/data");
+/* harmony import */ var _grafana_data__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(_grafana_data__WEBPACK_IMPORTED_MODULE_1__);
+/* harmony import */ var grafana_app_plugins_sdk__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! grafana/app/plugins/sdk */ "grafana/app/plugins/sdk");
+/* harmony import */ var grafana_app_plugins_sdk__WEBPACK_IMPORTED_MODULE_2___default = /*#__PURE__*/__webpack_require__.n(grafana_app_plugins_sdk__WEBPACK_IMPORTED_MODULE_2__);
+/* harmony import */ var _format_values__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./format-values */ "./format-values.js");
+/* harmony import */ var lodash__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! lodash */ "lodash");
+/* harmony import */ var lodash__WEBPACK_IMPORTED_MODULE_4___default = /*#__PURE__*/__webpack_require__.n(lodash__WEBPACK_IMPORTED_MODULE_4__);
+/* harmony import */ var _external_YourJS_min__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./external/YourJS.min */ "./external/YourJS.min.js");
+/* harmony import */ var _external_YourJS_min__WEBPACK_IMPORTED_MODULE_5___default = /*#__PURE__*/__webpack_require__.n(_external_YourJS_min__WEBPACK_IMPORTED_MODULE_5__);
+/* harmony import */ var _external_FileSaver_min_js__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./external/FileSaver.min.js */ "./external/FileSaver.min.js");
+/* harmony import */ var _external_FileSaver_min_js__WEBPACK_IMPORTED_MODULE_6___default = /*#__PURE__*/__webpack_require__.n(_external_FileSaver_min_js__WEBPACK_IMPORTED_MODULE_6__);
+/* harmony import */ var _helper_functions__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./helper-functions */ "./helper-functions.js");
+/* harmony import */ var _external_datatables_js_jquery_dataTables_min__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ./external/datatables/js/jquery.dataTables.min */ "./external/datatables/js/jquery.dataTables.min.js");
+/* harmony import */ var _external_datatables_js_jquery_dataTables_min__WEBPACK_IMPORTED_MODULE_8___default = /*#__PURE__*/__webpack_require__.n(_external_datatables_js_jquery_dataTables_min__WEBPACK_IMPORTED_MODULE_8__);
+/* harmony import */ var _external_datatables_js_dataTables_fixedHeader_min__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! ./external/datatables/js/dataTables.fixedHeader.min */ "./external/datatables/js/dataTables.fixedHeader.min.js");
+/* harmony import */ var _external_datatables_js_dataTables_fixedHeader_min__WEBPACK_IMPORTED_MODULE_9___default = /*#__PURE__*/__webpack_require__.n(_external_datatables_js_dataTables_fixedHeader_min__WEBPACK_IMPORTED_MODULE_9__);
+/* harmony import */ var _external_datatables_js_dataTables_buttons_min__WEBPACK_IMPORTED_MODULE_10__ = __webpack_require__(/*! ./external/datatables/js/dataTables.buttons.min */ "./external/datatables/js/dataTables.buttons.min.js");
+/* harmony import */ var _external_datatables_js_dataTables_buttons_min__WEBPACK_IMPORTED_MODULE_10___default = /*#__PURE__*/__webpack_require__.n(_external_datatables_js_dataTables_buttons_min__WEBPACK_IMPORTED_MODULE_10__);
+/* harmony import */ var _external_datatables_css_jquery_dataTables_min_css__WEBPACK_IMPORTED_MODULE_11__ = __webpack_require__(/*! ./external/datatables/css/jquery.dataTables.min.css */ "./external/datatables/css/jquery.dataTables.min.css");
+/* harmony import */ var _external_datatables_css_jquery_dataTables_min_css__WEBPACK_IMPORTED_MODULE_11___default = /*#__PURE__*/__webpack_require__.n(_external_datatables_css_jquery_dataTables_min_css__WEBPACK_IMPORTED_MODULE_11__);
+/* harmony import */ var _external_datatables_css_fixedHeader_dataTables_min_css__WEBPACK_IMPORTED_MODULE_12__ = __webpack_require__(/*! ./external/datatables/css/fixedHeader.dataTables.min.css */ "./external/datatables/css/fixedHeader.dataTables.min.css");
+/* harmony import */ var _external_datatables_css_fixedHeader_dataTables_min_css__WEBPACK_IMPORTED_MODULE_12___default = /*#__PURE__*/__webpack_require__.n(_external_datatables_css_fixedHeader_dataTables_min_css__WEBPACK_IMPORTED_MODULE_12__);
+/* harmony import */ var _external_datatables_css_buttons_dataTables_min_css__WEBPACK_IMPORTED_MODULE_13__ = __webpack_require__(/*! ./external/datatables/css/buttons.dataTables.min.css */ "./external/datatables/css/buttons.dataTables.min.css");
+/* harmony import */ var _external_datatables_css_buttons_dataTables_min_css__WEBPACK_IMPORTED_MODULE_13___default = /*#__PURE__*/__webpack_require__.n(_external_datatables_css_buttons_dataTables_min_css__WEBPACK_IMPORTED_MODULE_13__);
+/* harmony import */ var jquery__WEBPACK_IMPORTED_MODULE_14__ = __webpack_require__(/*! jquery */ "jquery");
+/* harmony import */ var jquery__WEBPACK_IMPORTED_MODULE_14___default = /*#__PURE__*/__webpack_require__.n(jquery__WEBPACK_IMPORTED_MODULE_14__);
+
 
 
 
@@ -9872,11 +9921,11 @@ function (_super) {
 
     _this.$rootScope = $rootScope; // Make sure old versions have this value set to false.
 
-    if (!lodash__WEBPACK_IMPORTED_MODULE_3___default.a.has(_this.panel, 'allowRedrawOnModify')) {
+    if (!lodash__WEBPACK_IMPORTED_MODULE_4___default.a.has(_this.panel, 'allowRedrawOnModify')) {
       _this.panel.allowRedrawOnModify = false;
     }
 
-    lodash__WEBPACK_IMPORTED_MODULE_3___default.a.defaultsDeep(_this.panel, DataTablePanelCtrl.DEFAULT_PANEL_SETTINGS);
+    lodash__WEBPACK_IMPORTED_MODULE_4___default.a.defaultsDeep(_this.panel, DataTablePanelCtrl.DEFAULT_PANEL_SETTINGS);
 
     _this.events.on('init-edit-mode', _this.onInitEditMode.bind(_this));
 
@@ -9894,7 +9943,14 @@ function (_super) {
 
     _this.events.on('panel-teardown', _this.onDataTablePanelTeardown.bind(_this));
 
-    jquery__WEBPACK_IMPORTED_MODULE_13___default.a.fn.dataTable.ext.search.push(_this.filterDataTable.bind(_this));
+    Object.values(_grafana_data__WEBPACK_IMPORTED_MODULE_1__["PanelEvents"]).forEach(function (_a) {
+      var name = _a.name;
+
+      _this.events.on(name, function () {
+        console.debug(name, arguments);
+      });
+    });
+    jquery__WEBPACK_IMPORTED_MODULE_14___default.a.fn.dataTable.ext.search.push(_this.filterDataTable.bind(_this));
     return _this;
   }
 
@@ -9921,12 +9977,12 @@ function (_super) {
   DataTablePanelCtrl.prototype.getPanelSettingsJSON = function (spacing) {
     var panel = this.panel;
     return JSON.stringify(panel, function (key, value) {
-      return this !== panel || lodash__WEBPACK_IMPORTED_MODULE_3___default.a.has(DataTablePanelCtrl.DEFAULT_PANEL_SETTINGS, key) ? value : undefined;
+      return this !== panel || lodash__WEBPACK_IMPORTED_MODULE_4___default.a.has(DataTablePanelCtrl.DEFAULT_PANEL_SETTINGS, key) ? value : undefined;
     }, spacing);
   };
 
   DataTablePanelCtrl.prototype.onDataTablePanelTeardown = function () {
-    var search = jquery__WEBPACK_IMPORTED_MODULE_13___default.a.fn.dataTable.ext.search;
+    var search = jquery__WEBPACK_IMPORTED_MODULE_14___default.a.fn.dataTable.ext.search;
 
     for (var i = search.length; i--;) {
       if (search[i]() === this) {
@@ -9975,7 +10031,6 @@ function (_super) {
         });
       });
       this.dataList = dataList;
-      this.updateDataListOptions();
     } else {
       var EXTRA_COLS_1 = 2;
       this.dataList = [{
@@ -9985,13 +10040,13 @@ function (_super) {
           text: 'X * X'
         }, {
           text: 'X + X'
-        }].concat(lodash__WEBPACK_IMPORTED_MODULE_3___default.a.range(EXTRA_COLS_1).map(function (y) {
+        }].concat(lodash__WEBPACK_IMPORTED_MODULE_4___default.a.range(EXTRA_COLS_1).map(function (y) {
           return {
             text: y + " / Math.random()"
           };
         })),
-        rows: lodash__WEBPACK_IMPORTED_MODULE_3___default.a.range(150).map(function (x) {
-          return [x, x * x, x + x].concat(lodash__WEBPACK_IMPORTED_MODULE_3___default.a.range(EXTRA_COLS_1).map(function (y) {
+        rows: lodash__WEBPACK_IMPORTED_MODULE_4___default.a.range(150).map(function (x) {
+          return [x, x * x, x + x].concat(lodash__WEBPACK_IMPORTED_MODULE_4___default.a.range(EXTRA_COLS_1).map(function (y) {
             return y / Math.random();
           }));
         }),
@@ -10075,7 +10130,7 @@ function (_super) {
   };
 
   DataTablePanelCtrl.prototype.updateDataListOptions = function () {
-    this.dataListOptions = [{}].concat(this.dataList).map(function (x, i) {
+    this.dataListOptions = [{}].concat(this.processedDataList).map(function (x, i) {
       return {
         id: i ? x.refId : null,
         text: i ? x.refId : '--- NONE ---'
@@ -10102,7 +10157,7 @@ function (_super) {
     var ctrl = this;
     ctrl.publishAppEvent('show-modal', {
       src: PARTIALS_BASE_PATH + "modal-export.html",
-      scope: lodash__WEBPACK_IMPORTED_MODULE_3___default.a.extend(ctrl.$scope.$new(true), {
+      scope: lodash__WEBPACK_IMPORTED_MODULE_4___default.a.extend(ctrl.$scope.$new(true), {
         fileNamePattern: FILE_NAME_PATTERN,
         fileNamePatternPlaceholder: FILE_NAME_PATTERN,
         EXPORT_TYPES: [{
@@ -10184,13 +10239,13 @@ function (_super) {
     var HEADER_TEXTS = columns.filter(function (c) {
       return c.visible;
     }).map(function (c) {
-      return Object(_helper_functions__WEBPACK_IMPORTED_MODULE_6__["getHtmlText"])(c.html);
+      return Object(_helper_functions__WEBPACK_IMPORTED_MODULE_7__["getHtmlText"])(c.html);
     });
     this.processRows(rows, columns, header, this.getVarsByName());
     rows = rows.map(function (row) {
       return row.reduce(function (objRow, cell, cellIndex) {
         if (cell.visible) {
-          objRow[HEADER_TEXTS[cellIndex]] = Object(_helper_functions__WEBPACK_IMPORTED_MODULE_6__["getHtmlText"])(cell.html);
+          objRow[HEADER_TEXTS[cellIndex]] = Object(_helper_functions__WEBPACK_IMPORTED_MODULE_7__["getHtmlText"])(cell.html);
         }
 
         return objRow;
@@ -10202,7 +10257,7 @@ function (_super) {
     })], {
       type: 'application/json;charset=utf-8'
     });
-    Object(_external_FileSaver_min_js__WEBPACK_IMPORTED_MODULE_5__["saveAs"])(blob, this.getFileName(fileNamePattern, 'json'));
+    Object(_external_FileSaver_min_js__WEBPACK_IMPORTED_MODULE_6__["saveAs"])(blob, this.getFileName(fileNamePattern, 'json'));
   };
 
   DataTablePanelCtrl.prototype.exportCSV = function (exportAllData, fileNamePattern, opt_options) {
@@ -10215,18 +10270,18 @@ function (_super) {
         rows = _a.rows;
 
     this.processRows(rows, columns, header, this.getVarsByName());
-    var csvText = Object(_helper_functions__WEBPACK_IMPORTED_MODULE_6__["toCSV"])(rows.map(function (row) {
+    var csvText = Object(_helper_functions__WEBPACK_IMPORTED_MODULE_7__["toCSV"])(rows.map(function (row) {
       return row.reduce(function (carry, cell) {
         if (cell.visible) {
-          carry.push(Object(_helper_functions__WEBPACK_IMPORTED_MODULE_6__["getHtmlText"])(cell.html));
+          carry.push(Object(_helper_functions__WEBPACK_IMPORTED_MODULE_7__["getHtmlText"])(cell.html));
         }
 
         return carry;
       }, []);
-    }), lodash__WEBPACK_IMPORTED_MODULE_3___default.a.extend({
+    }), lodash__WEBPACK_IMPORTED_MODULE_4___default.a.extend({
       headers: columns.reduce(function (carry, col) {
         if (col.visible) {
-          carry.push(Object(_helper_functions__WEBPACK_IMPORTED_MODULE_6__["getHtmlText"])(col.html));
+          carry.push(Object(_helper_functions__WEBPACK_IMPORTED_MODULE_7__["getHtmlText"])(col.html));
         }
 
         return carry;
@@ -10237,7 +10292,7 @@ function (_super) {
     var blob = new Blob([csvText], {
       type: mimeType + ";charset=utf-8"
     });
-    Object(_external_FileSaver_min_js__WEBPACK_IMPORTED_MODULE_5__["saveAs"])(blob, this.getFileName(fileNamePattern, ext));
+    Object(_external_FileSaver_min_js__WEBPACK_IMPORTED_MODULE_6__["saveAs"])(blob, this.getFileName(fileNamePattern, ext));
   };
 
   DataTablePanelCtrl.prototype.exportXLSX = function (exportAllData, fileNamePattern) {
@@ -10248,13 +10303,13 @@ function (_super) {
         rows = _a.rows;
 
     this.processRows(rows, columns, header, this.getVarsByName());
-    Object(_helper_functions__WEBPACK_IMPORTED_MODULE_6__["saveXLSX"])({
+    Object(_helper_functions__WEBPACK_IMPORTED_MODULE_7__["saveXLSX"])({
       fileName: this.getFileName(fileNamePattern, 'xlsx'),
       worksheets: [{
         name: 'Main',
         headers: columns.reduce(function (carry, col) {
           if (col.visible) {
-            carry.push(Object(_helper_functions__WEBPACK_IMPORTED_MODULE_6__["getHtmlText"])(col.html));
+            carry.push(Object(_helper_functions__WEBPACK_IMPORTED_MODULE_7__["getHtmlText"])(col.html));
           }
 
           return carry;
@@ -10262,7 +10317,7 @@ function (_super) {
         rows: rows.map(function (row) {
           return row.reduce(function (carry, cell) {
             if (cell.visible) {
-              carry.push(Object(_helper_functions__WEBPACK_IMPORTED_MODULE_6__["getHtmlText"])(cell.html));
+              carry.push(Object(_helper_functions__WEBPACK_IMPORTED_MODULE_7__["getHtmlText"])(cell.html));
             }
 
             return carry;
@@ -10276,8 +10331,8 @@ function (_super) {
     var _this = this;
 
     return pattern // Replace the meta groups and date formatting.
-    .replace(Object(_helper_functions__WEBPACK_IMPORTED_MODULE_6__["vRegExp"])(templateObject_1 || (templateObject_1 = Object(tslib__WEBPACK_IMPORTED_MODULE_0__["__makeTemplateObject"])(["\n          (?g)                      // Global regexp\n          <(TITLE|DASHBOARD|PANEL)> // Source type\n          |\n          [^<]+                     // Characters to run through JS.formatDate().\n        "], ["\n          (?g)                      // Global regexp\n          <(TITLE|DASHBOARD|PANEL)> // Source type\n          |\n          [^<]+                     // Characters to run through JS.formatDate().\n        "]))), function (match, source) {
-      return source ? source === 'TITLE' ? _this.panel.title || _this.dashboard.title : _this[source.toLowerCase()].title : _external_YourJS_min__WEBPACK_IMPORTED_MODULE_4__["formatDate"](new Date(), match);
+    .replace(Object(_helper_functions__WEBPACK_IMPORTED_MODULE_7__["vRegExp"])(templateObject_1 || (templateObject_1 = Object(tslib__WEBPACK_IMPORTED_MODULE_0__["__makeTemplateObject"])(["\n          (?g)                      // Global regexp\n          <(TITLE|DASHBOARD|PANEL)> // Source type\n          |\n          [^<]+                     // Characters to run through JS.formatDate().\n        "], ["\n          (?g)                      // Global regexp\n          <(TITLE|DASHBOARD|PANEL)> // Source type\n          |\n          [^<]+                     // Characters to run through JS.formatDate().\n        "]))), function (match, source) {
+      return source ? source === 'TITLE' ? _this.panel.title || _this.dashboard.title : _this[source.toLowerCase()].title : _external_YourJS_min__WEBPACK_IMPORTED_MODULE_5__["formatDate"](new Date(), match);
     }) // Replace 1 or more consecutive invalid file name characters with an
     // underscore.
     .replace(/[<>:"\\\/\|\?\*]+/g, '_') + // Add the extension.
@@ -10287,7 +10342,7 @@ function (_super) {
   DataTablePanelCtrl.prototype.getVarsByName = function () {
     return this.templateSrv.variables.reduce(function (carry, variable) {
       // At times current.value is a string and at times it is an array.
-      var varValues = _external_YourJS_min__WEBPACK_IMPORTED_MODULE_4__["toArray"](variable.current.value);
+      var varValues = _external_YourJS_min__WEBPACK_IMPORTED_MODULE_5__["toArray"](variable.current.value);
       var isAll = variable.includeAll && varValues.length === 1 && varValues[0] === '$__all';
       carry[variable.name] = isAll ? [variable.current.text] : varValues;
       return carry;
@@ -10311,13 +10366,13 @@ function (_super) {
       domTable.style.width = '100%';
     }
 
-    var table = _external_YourJS_min__WEBPACK_IMPORTED_MODULE_4__["dom"](domTable);
-    var jTable = jquery__WEBPACK_IMPORTED_MODULE_13___default()(table).appendTo(jElem.html(''));
+    var table = _external_YourJS_min__WEBPACK_IMPORTED_MODULE_5__["dom"](domTable);
+    var jTable = jquery__WEBPACK_IMPORTED_MODULE_14___default()(table).appendTo(jElem.html(''));
     var headers = data.headers;
     var dataTableOpts = {
       columns: columns.map(function (column, colIndex) {
         var result = {
-          title: Object(_helper_functions__WEBPACK_IMPORTED_MODULE_6__["getHtmlText"])(column.html),
+          title: Object(_helper_functions__WEBPACK_IMPORTED_MODULE_7__["getHtmlText"])(column.html),
           visible: column.visible
         };
         var colDef = column.colDef;
@@ -10342,27 +10397,27 @@ function (_super) {
 
         columns.forEach(function (col, colIndex) {
           if (col.visible) {
-            var jTH = jquery__WEBPACK_IMPORTED_MODULE_13___default()('>th', tr).eq(thIndex++).html(col.html);
+            var jTH = jquery__WEBPACK_IMPORTED_MODULE_14___default()('>th', tr).eq(thIndex++).html(col.html);
 
             if (panel.allowFiltering && (!col.colDef || col.colDef.isSearchable)) {
               var filter_1 = col.filter;
 
-              var colDataType_1 = lodash__WEBPACK_IMPORTED_MODULE_3___default.a.get(filter_1, 'dataType', 'String');
+              var colDataType_1 = lodash__WEBPACK_IMPORTED_MODULE_4___default.a.get(filter_1, 'dataType', 'String');
 
               var showFilterModal = function showFilterModal(e) {
                 e && e.stopPropagation();
                 var ID_SUFFIX = +new Date();
 
-                var filterCopy = lodash__WEBPACK_IMPORTED_MODULE_3___default.a.extend(lodash__WEBPACK_IMPORTED_MODULE_3___default.a.cloneDeep(filter_1), {
-                  minDate: Object(_helper_functions__WEBPACK_IMPORTED_MODULE_6__["toLocalDateString"])(filter_1.minDate),
-                  maxDate: Object(_helper_functions__WEBPACK_IMPORTED_MODULE_6__["toLocalDateString"])(filter_1.maxDate)
+                var filterCopy = lodash__WEBPACK_IMPORTED_MODULE_4___default.a.extend(lodash__WEBPACK_IMPORTED_MODULE_4___default.a.cloneDeep(filter_1), {
+                  minDate: Object(_helper_functions__WEBPACK_IMPORTED_MODULE_7__["toLocalDateString"])(filter_1.minDate),
+                  maxDate: Object(_helper_functions__WEBPACK_IMPORTED_MODULE_7__["toLocalDateString"])(filter_1.maxDate)
                 });
 
                 ctrl.publishAppEvent('show-modal', {
                   src: PARTIALS_BASE_PATH + "modal-column-filter.html",
-                  scope: lodash__WEBPACK_IMPORTED_MODULE_3___default.a.extend(ctrl.$scope.$new(true), {
+                  scope: lodash__WEBPACK_IMPORTED_MODULE_4___default.a.extend(ctrl.$scope.$new(true), {
                     isEditing: ctrl.dashboard.meta.isEditing,
-                    column: lodash__WEBPACK_IMPORTED_MODULE_3___default.a.cloneDeep(col),
+                    column: lodash__WEBPACK_IMPORTED_MODULE_4___default.a.cloneDeep(col),
                     columnDataType: colDataType_1,
                     ID_SUFFIX: ID_SUFFIX,
                     filter: filterCopy,
@@ -10377,11 +10432,11 @@ function (_super) {
 
                       if (colDataType_1 === 'Date' || colDataType_1 === 'Number' || colDataType_1 === 'BigInt') {
                         if (colDataType_1 === 'Date') {
-                          filter_1.minDate = Object(_helper_functions__WEBPACK_IMPORTED_MODULE_6__["parseLocalDate"])(scopeFilter.filter.minDate, ctrl, true);
-                          filter_1.maxDate = Object(_helper_functions__WEBPACK_IMPORTED_MODULE_6__["parseLocalDate"])(scopeFilter.filter.maxDate, ctrl, true);
+                          filter_1.minDate = Object(_helper_functions__WEBPACK_IMPORTED_MODULE_7__["parseLocalDate"])(scopeFilter.filter.minDate, ctrl, true);
+                          filter_1.maxDate = Object(_helper_functions__WEBPACK_IMPORTED_MODULE_7__["parseLocalDate"])(scopeFilter.filter.maxDate, ctrl, true);
                         } else {
-                          filter_1.minNum = Object(_helper_functions__WEBPACK_IMPORTED_MODULE_6__["parseOptionalNumber"])(scopeFilter.filter.minNum);
-                          filter_1.maxNum = Object(_helper_functions__WEBPACK_IMPORTED_MODULE_6__["parseOptionalNumber"])(scopeFilter.filter.maxNum);
+                          filter_1.minNum = Object(_helper_functions__WEBPACK_IMPORTED_MODULE_7__["parseOptionalNumber"])(scopeFilter.filter.minNum);
+                          filter_1.maxNum = Object(_helper_functions__WEBPACK_IMPORTED_MODULE_7__["parseOptionalNumber"])(scopeFilter.filter.maxNum);
                         }
 
                         ignore = (filter_1.minNum === null || filter_1.minNum === undefined) && (filter_1.maxNum === null || filter_1.maxNum === undefined) && (filter_1.minDate === null || filter_1.minDate === undefined) && (filter_1.maxDate === null || filter_1.maxDate === undefined);
@@ -10393,7 +10448,7 @@ function (_super) {
                         ignore = !filter_1.includeTrue && !filter_1.includeFalse;
                       } else {
                         filter_1.text = scopeFilter.filter.text.trim();
-                        filter_1.matchTerms = Object(_helper_functions__WEBPACK_IMPORTED_MODULE_6__["term"])(filter_1.text, {
+                        filter_1.matchTerms = Object(_helper_functions__WEBPACK_IMPORTED_MODULE_7__["term"])(filter_1.text, {
                           matchWordStart: true
                         });
                         ignore = filter_1.text === '';
@@ -10418,8 +10473,8 @@ function (_super) {
                               includeNull: filter.includeNull,
                               minNum: filter.minNum,
                               maxNum: filter.maxNum,
-                              minDate: Object(_helper_functions__WEBPACK_IMPORTED_MODULE_6__["toLocalDateString"])(filter.minDate),
-                              maxDate: Object(_helper_functions__WEBPACK_IMPORTED_MODULE_6__["toLocalDateString"])(filter.maxDate),
+                              minDate: Object(_helper_functions__WEBPACK_IMPORTED_MODULE_7__["toLocalDateString"])(filter.minDate),
+                              maxDate: Object(_helper_functions__WEBPACK_IMPORTED_MODULE_7__["toLocalDateString"])(filter.maxDate),
                               includeMin: filter.includeMin,
                               includeMax: filter.includeMax,
                               dataType: filter.dataType
@@ -10441,7 +10496,7 @@ function (_super) {
                 });
               };
 
-              jTH.prepend(_external_YourJS_min__WEBPACK_IMPORTED_MODULE_4__["dom"]({
+              jTH.prepend(_external_YourJS_min__WEBPACK_IMPORTED_MODULE_5__["dom"]({
                 _: 'i',
                 cls: 'fa fa-filter ' + (filter_1.ignore ? 'off' : 'on'),
                 style: (filter_1.ignore ? 'opacity:0.25;' : '') + 'margin-right:0.25em;cursor:pointer;',
@@ -10461,7 +10516,7 @@ function (_super) {
           cell = rowData[colIndex];
 
           if (cell.visible) {
-            var jTD = jquery__WEBPACK_IMPORTED_MODULE_13___default()('> td', tr).eq(tdIndex++);
+            var jTD = jquery__WEBPACK_IMPORTED_MODULE_14___default()('> td', tr).eq(tdIndex++);
 
             if (cell.cls && cell.cls.level === 'CELL') {
               jTD.addClass(cell.cls.names);
@@ -10476,14 +10531,14 @@ function (_super) {
             var html = cell.html;
 
             if (cell.tooltip) {
-              html = "<div data-tooltip data-original-title=\"" + lodash__WEBPACK_IMPORTED_MODULE_3___default.a.escape(cell.tooltip.display) + "\" data-placement=\"" + cell.tooltip.placement + "\" class=\"d-inline-block\">" + html + "</div>";
+              html = "<div data-tooltip data-original-title=\"" + lodash__WEBPACK_IMPORTED_MODULE_4___default.a.escape(cell.tooltip.display) + "\" data-placement=\"" + cell.tooltip.placement + "\" class=\"d-inline-block\">" + html + "</div>";
             }
 
             jTD.html(html);
           }
 
           if (cell.cls && cell.cls.level === 'ROW') {
-            jquery__WEBPACK_IMPORTED_MODULE_13___default()(tr).addClass(cell.cls.names);
+            jquery__WEBPACK_IMPORTED_MODULE_14___default()(tr).addClass(cell.cls.names);
           }
         }
       },
@@ -10516,7 +10571,7 @@ function (_super) {
 
     jElem.each(function (i, elem) {
       elem.className = elem.className.replace(/\b_\d+\b/g, ' ').replace(/\s+/g, ' ').trim();
-      elem.appendChild(_external_YourJS_min__WEBPACK_IMPORTED_MODULE_4__["css"](JSON.parse(Object(_helper_functions__WEBPACK_IMPORTED_MODULE_6__["pseudoCssToJSON"])(panel.pseudoCSS)), elem));
+      elem.appendChild(_external_YourJS_min__WEBPACK_IMPORTED_MODULE_5__["css"](JSON.parse(Object(_helper_functions__WEBPACK_IMPORTED_MODULE_7__["pseudoCssToJSON"])(panel.pseudoCSS)), elem));
     });
   };
 
@@ -10609,27 +10664,27 @@ function (_super) {
               if (isMatch) {
                 if (rule.classNames) {
                   cell.cls = {
-                    names: Object(_helper_functions__WEBPACK_IMPORTED_MODULE_6__["getCellValue"])(rule.classNames, false, gcvOptions),
+                    names: Object(_helper_functions__WEBPACK_IMPORTED_MODULE_7__["getCellValue"])(rule.classNames, false, gcvOptions),
                     level: rule.classLevel
                   };
                 } // Set the display
 
 
-                var displayHTML = Object(_helper_functions__WEBPACK_IMPORTED_MODULE_6__["getCellValue"])(rule.display, false, gcvOptions);
+                var displayHTML = Object(_helper_functions__WEBPACK_IMPORTED_MODULE_7__["getCellValue"])(rule.display, false, gcvOptions);
 
                 if (!rule.displayIsHTML) {
-                  displayHTML = lodash__WEBPACK_IMPORTED_MODULE_3___default.a.escape(displayHTML);
+                  displayHTML = lodash__WEBPACK_IMPORTED_MODULE_4___default.a.escape(displayHTML);
                 }
 
                 if (rule.url) {
-                  var url = lodash__WEBPACK_IMPORTED_MODULE_3___default.a.escape(Object(_helper_functions__WEBPACK_IMPORTED_MODULE_6__["getCellValue"])(rule.url, true, gcvOptions));
+                  var url = lodash__WEBPACK_IMPORTED_MODULE_4___default.a.escape(Object(_helper_functions__WEBPACK_IMPORTED_MODULE_7__["getCellValue"])(rule.url, true, gcvOptions));
 
                   var target = rule.openNewWindow ? '_blank' : '';
                   var tooltipHTML = '';
 
                   if (rule.tooltip.isVisible) {
                     cell.tooltip = {
-                      display: Object(_helper_functions__WEBPACK_IMPORTED_MODULE_6__["getCellValue"])(rule.tooltip.display, false, gcvOptions),
+                      display: Object(_helper_functions__WEBPACK_IMPORTED_MODULE_7__["getCellValue"])(rule.tooltip.display, false, gcvOptions),
                       placement: rule.tooltip.placement.toLowerCase()
                     };
                   }
@@ -10647,7 +10702,7 @@ function (_super) {
 
 
           if (!ruleApplied) {
-            cell.html = lodash__WEBPACK_IMPORTED_MODULE_3___default.a.escape(cell.html);
+            cell.html = lodash__WEBPACK_IMPORTED_MODULE_4___default.a.escape(cell.html);
           }
 
           row[colIndex] = cell;
@@ -10680,7 +10735,7 @@ function (_super) {
   DataTablePanelCtrl.prototype.getVarColsData = function () {
     var varCols = this.panel.varCols;
     var dataRefId = varCols && varCols.dataRefId;
-    var dataList = this.dataList;
+    var dataList = this.processedDataList;
     return dataList && dataList.find(function (_a) {
       var refId = _a.refId;
       return refId === dataRefId;
@@ -10742,7 +10797,7 @@ function (_super) {
 
               if (vcJoinValue === mainRow[mainJoinColIndex_1]) {
                 mainRow[MAIN_COL_COUNT + colIndex] = vcRow[valueColIndex_1];
-                (mainRow.joinValues = mainRow.joinValues || [])[MAIN_COL_COUNT + colIndex] = lodash__WEBPACK_IMPORTED_MODULE_3___default.a.zipObject(vcHeaders_1, vcRow);
+                (mainRow.joinValues = mainRow.joinValues || [])[MAIN_COL_COUNT + colIndex] = lodash__WEBPACK_IMPORTED_MODULE_4___default.a.zipObject(vcHeaders_1, vcRow);
                 mainRowIndex_1 = i;
                 isChanged = true;
               } else if (isChanged) {
@@ -10790,12 +10845,29 @@ function (_super) {
       }
     }
   };
+  /**
+   * Updates the `processedDataList` property of this panel's instance.
+   */
+
+
+  DataTablePanelCtrl.prototype.updateProcessedDataList = function () {
+    var colDefJS = this.panel.colDefJS;
+    this.processedDataList = JSON.parse(JSON.stringify(this.dataList));
+
+    if (colDefJS !== DataTablePanelCtrl.DEFAULT_COL_DEF_JS && (colDefJS || '').trim() !== '') {
+      this.processedDataList = new Function(colDefJS + "\nreturn processData(arguments[0])")(this.processedDataList);
+    }
+
+    this.updateDataListOptions();
+  };
 
   DataTablePanelCtrl.prototype.getData = function () {
-    var ctrl = this;
-    var dataList = ctrl.dataList[0];
+    var ctrl = this; // Update this.processedDataList
+
+    ctrl.updateProcessedDataList();
+    var dataList = ctrl.processedDataList[0];
     var columns = dataList.columns.map(function (col) {
-      return lodash__WEBPACK_IMPORTED_MODULE_3___default.a.cloneDeep(col);
+      return lodash__WEBPACK_IMPORTED_MODULE_4___default.a.cloneDeep(col);
     });
     var rows = dataList.rows.map(function (row) {
       return row.slice();
@@ -10805,11 +10877,11 @@ function (_super) {
     var colDefs = panel.columnDefs;
     var varCols = panel.varCols;
     var colDefRgxs = colDefs.map(function (colDef) {
-      return Object(_helper_functions__WEBPACK_IMPORTED_MODULE_6__["parseRegExp"])(colDef.filter);
+      return Object(_helper_functions__WEBPACK_IMPORTED_MODULE_7__["parseRegExp"])(colDef.filter);
     });
     var colDefContentRuleFilters = colDefs.map(function (colDef) {
       return colDef.contentRules.map(function (rule) {
-        return rule.type === 'FILTER' ? Object(_helper_functions__WEBPACK_IMPORTED_MODULE_6__["parseRegExp"])(rule.filter) : null;
+        return rule.type === 'FILTER' ? Object(_helper_functions__WEBPACK_IMPORTED_MODULE_7__["parseRegExp"])(rule.filter) : null;
       });
     }); // Create the data object to be returned.
 
@@ -10849,17 +10921,17 @@ function (_super) {
             ctrl: ctrl,
             varsByName: varsByName
           };
-          column.text = Object(_helper_functions__WEBPACK_IMPORTED_MODULE_6__["getCellValue"])(colDef.display, false, gcvOptions);
-          var html = colDef.displayIsHTML ? column.text : lodash__WEBPACK_IMPORTED_MODULE_3___default.a.escape(column.text);
+          column.text = Object(_helper_functions__WEBPACK_IMPORTED_MODULE_7__["getCellValue"])(colDef.display, false, gcvOptions);
+          var html = colDef.displayIsHTML ? column.text : lodash__WEBPACK_IMPORTED_MODULE_4___default.a.escape(column.text);
 
           if (colDef.url) {
-            var url = lodash__WEBPACK_IMPORTED_MODULE_3___default.a.escape(Object(_helper_functions__WEBPACK_IMPORTED_MODULE_6__["getCellValue"])(colDef.url, true, gcvOptions));
+            var url = lodash__WEBPACK_IMPORTED_MODULE_4___default.a.escape(Object(_helper_functions__WEBPACK_IMPORTED_MODULE_7__["getCellValue"])(colDef.url, true, gcvOptions));
 
             var target = colDef.openNewWindow ? '_blank' : '';
             html = "<a href=\"" + url + "\" target=\"" + target + "\" onclick=\"event.stopPropagation()\">" + html + "</a>";
           }
 
-          lodash__WEBPACK_IMPORTED_MODULE_3___default.a.extend(column, {
+          lodash__WEBPACK_IMPORTED_MODULE_4___default.a.extend(column, {
             colDef: colDef,
             colDefContentRuleFilters: colDefContentRuleFilters[colDefIndex],
             html: html,
@@ -10885,7 +10957,7 @@ function (_super) {
         maxDate: null,
         includeMin: false,
         includeMax: false,
-        dataType: _external_YourJS_min__WEBPACK_IMPORTED_MODULE_4__["nativeType"]((rows.find(function (row) {
+        dataType: _external_YourJS_min__WEBPACK_IMPORTED_MODULE_5__["nativeType"]((rows.find(function (row) {
           return row[colIndex] !== null && row[colIndex] !== undefined;
         }) || [])[colIndex]),
         matchTerms: function matchTerms() {
@@ -10896,7 +10968,7 @@ function (_super) {
         clear: function clear() {
           Object.assign(this, originalFilter);
         },
-        dataType: _external_YourJS_min__WEBPACK_IMPORTED_MODULE_4__["nativeType"]((rows.find(function (row) {
+        dataType: _external_YourJS_min__WEBPACK_IMPORTED_MODULE_5__["nativeType"]((rows.find(function (row) {
           return row[colIndex] !== null && row[colIndex] !== undefined;
         }) || [])[colIndex]),
         matchTerms: function matchTerms() {
@@ -10939,7 +11011,7 @@ function (_super) {
           var result = filter.dataType === columnFilter.dataType && column.text === columnFilter.columnText;
 
           if (result) {
-            lodash__WEBPACK_IMPORTED_MODULE_3___default.a.extend(filter, {
+            lodash__WEBPACK_IMPORTED_MODULE_4___default.a.extend(filter, {
               ignore: columnFilter.ignore,
               negate: columnFilter.negate,
               text: columnFilter.text,
@@ -10948,8 +11020,8 @@ function (_super) {
               includeNull: columnFilter.includeNull,
               minNum: columnFilter.minNum,
               maxNum: columnFilter.maxNum,
-              minDate: Object(_helper_functions__WEBPACK_IMPORTED_MODULE_6__["parseLocalDate"])(columnFilter.minDate, ctrl, true),
-              maxDate: Object(_helper_functions__WEBPACK_IMPORTED_MODULE_6__["parseLocalDate"])(columnFilter.maxDate, ctrl, true),
+              minDate: Object(_helper_functions__WEBPACK_IMPORTED_MODULE_7__["parseLocalDate"])(columnFilter.minDate, ctrl, true),
+              maxDate: Object(_helper_functions__WEBPACK_IMPORTED_MODULE_7__["parseLocalDate"])(columnFilter.maxDate, ctrl, true),
               includeMin: columnFilter.includeMin,
               includeMax: columnFilter.includeMax,
               dataType: columnFilter.dataType
@@ -10960,8 +11032,8 @@ function (_super) {
         });
       }
 
-      if (!lodash__WEBPACK_IMPORTED_MODULE_3___default.a.has(column, 'html')) {
-        column.html = lodash__WEBPACK_IMPORTED_MODULE_3___default.a.escape(column.text);
+      if (!lodash__WEBPACK_IMPORTED_MODULE_4___default.a.has(column, 'html')) {
+        column.html = lodash__WEBPACK_IMPORTED_MODULE_4___default.a.escape(column.text);
       }
 
       columns[colIndex] = column;
@@ -11015,7 +11087,7 @@ function (_super) {
 
     if (!isValid) {
       var msg = 'No data' + (error ? ':  \r\n' + error.message : '.');
-      var elemMsg = _external_YourJS_min__WEBPACK_IMPORTED_MODULE_4__["dom"]({
+      var elemMsg = _external_YourJS_min__WEBPACK_IMPORTED_MODULE_5__["dom"]({
         _: 'div',
         style: {
           display: 'flex',
@@ -11041,7 +11113,7 @@ function (_super) {
   };
 
   DataTablePanelCtrl.prototype.setPanelValue = function (rootVar, path, value) {
-    lodash__WEBPACK_IMPORTED_MODULE_3___default.a.set(rootVar, path, value);
+    lodash__WEBPACK_IMPORTED_MODULE_4___default.a.set(rootVar, path, value);
 
     this.autoRedraw();
   };
@@ -11053,12 +11125,13 @@ function (_super) {
   DataTablePanelCtrl.prototype.link = function (scope, elem, attrs, ctrl) {
     this.element = elem;
     this.panelElement = elem.find('grafana-panel > *:eq(0)');
-    this.throttleDraw = lodash__WEBPACK_IMPORTED_MODULE_3___default.a.debounce(this.draw.bind(this), 1000);
+    this.throttleDraw = lodash__WEBPACK_IMPORTED_MODULE_4___default.a.debounce(this.draw.bind(this), 1000);
   };
 
   DataTablePanelCtrl.templateUrl = 'partials/module.html';
-  DataTablePanelCtrl.DEFAULT_PSEUDO_CSS = "\n  .theme-dark & {\n    color: white;\n    \n    .dataTables_filter input[type=search] {\n      border: 1px solid #262628;\n    }\n  }\n  .dataTables_filter input[type=search] {\n    border: 1px solid #dde4ed;\n    height: 35px;\n    line-height: 35px;\n    border-radius: 5px;\n    padding: 0 8px;\n  }\n  table.dataTable tbody tr {\n    &:hover td {\n      background-image: linear-gradient(0deg, rgba(128,128,128,0.1), rgba(128,128,128,0.1));\n    }\n    &, &.even, &.odd {\n      background-color: transparent;\n      td {\n        border-color: transparent;\n      }\n    }\n    &.odd {\n      background-color: rgba(128,128,128,0.3);\n    }\n    &.even {\n      background-color: rgba(128,128,128,0.15);\n    }\n  }\n  ";
-  DataTablePanelCtrl.UNIT_FORMATS = Object(_format_values__WEBPACK_IMPORTED_MODULE_2__["getValueFormats"])();
+  DataTablePanelCtrl.DEFAULT_PSEUDO_CSS = Object(_helper_functions__WEBPACK_IMPORTED_MODULE_7__["unindentMin"])("\n  .theme-dark & {\n    color: white;\n    \n    .dataTables_filter input[type=search] {\n      border: 1px solid #262628;\n    }\n  }\n  .dataTables_filter input[type=search] {\n    border: 1px solid #dde4ed;\n    height: 35px;\n    line-height: 35px;\n    border-radius: 5px;\n    padding: 0 8px;\n  }\n  table.dataTable tbody tr {\n    &:hover td {\n      background-image: linear-gradient(0deg, rgba(128,128,128,0.1), rgba(128,128,128,0.1));\n    }\n    &, &.even, &.odd {\n      background-color: transparent;\n      td {\n        border-color: transparent;\n      }\n    }\n    &.odd {\n      background-color: rgba(128,128,128,0.3);\n    }\n    &.even {\n      background-color: rgba(128,128,128,0.15);\n    }\n  }\n  ");
+  DataTablePanelCtrl.DEFAULT_COL_DEF_JS = Object(_helper_functions__WEBPACK_IMPORTED_MODULE_7__["unindentMin"])("\n  /**\n   * The function that is called to process the array of received datasets.\n   * @template {Dataset[]} T\n   * @param {T} datasets\n   * @returns {T}\n   */\n  function processData(datasets) {\n    return datasets;\n  }\n  /**\n   * @typedef {Object} Dataset\n   * @property {{text: string}[]} columns\n   * @property {boolean} isReal\n   * @property {{executedQueryString: boolean}} meta\n   * @property {string} refId\n   * @property {any[][]} rows\n   * @property {string} type\n   */\n  ");
+  DataTablePanelCtrl.UNIT_FORMATS = Object(_format_values__WEBPACK_IMPORTED_MODULE_3__["getValueFormats"])();
   DataTablePanelCtrl.TOOLTIP_PLACEMENTS = [{
     id: 'TOP',
     text: 'Top'
@@ -11140,6 +11213,7 @@ function (_super) {
     initialPageLength: 25,
     isFullWidth: true,
     pageLengths: '10,15,20,25,50,100',
+    colDefJS: DataTablePanelCtrl.DEFAULT_COL_DEF_JS,
     pseudoCSS: DataTablePanelCtrl.DEFAULT_PSEUDO_CSS,
     varCols: {
       dataRefId: null,
@@ -11153,10 +11227,10 @@ function (_super) {
     columnFilters: []
   };
   return DataTablePanelCtrl;
-}(grafana_app_plugins_sdk__WEBPACK_IMPORTED_MODULE_1__["MetricsPanelCtrl"]);
+}(grafana_app_plugins_sdk__WEBPACK_IMPORTED_MODULE_2__["MetricsPanelCtrl"]);
 
 
-DataTablePanelCtrl.prototype.autoRedraw = lodash__WEBPACK_IMPORTED_MODULE_3___default.a.debounce(function () {
+DataTablePanelCtrl.prototype.autoRedraw = lodash__WEBPACK_IMPORTED_MODULE_4___default.a.debounce(function () {
   if (this.panel.allowRedrawOnModify) {
     this.drawIfChanged.apply(this, arguments);
   }
